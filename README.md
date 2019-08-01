@@ -1,3 +1,5 @@
+This customized version requires my build of [ADBKeyBoard](https://github.com/Lurker00/ADBKeyBoard) for full functionality. More information to come...
+
 # scrcpy (v1.9)
 
 This application provides display and control of Android devices connected on
