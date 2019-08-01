@@ -5,10 +5,15 @@ import android.net.LocalSocket;
 import android.net.LocalSocketAddress;
 
 import java.io.Closeable;
-import java.io.FileDescriptor;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
+import java.nio.channels.WritableByteChannel;
 import java.nio.charset.StandardCharsets;
 
 public final class DesktopConnection implements Closeable {
@@ -17,71 +22,130 @@ public final class DesktopConnection implements Closeable {
 
     private static final String SOCKET_NAME = "scrcpy";
 
-    private final LocalSocket videoSocket;
-    private final FileDescriptor videoFd;
+    private final LocalSocket   localVideoSocket;
+    private final SocketChannel tcpVideoSocket;
 
-    private final LocalSocket controlSocket;
-    private final InputStream controlInputStream;
-    private final OutputStream controlOutputStream;
+    private final LocalSocket   localControlSocket;
+    private final SocketChannel tcpControlSocket;
+    private final InputStream   controlInputStream;
+    private final OutputStream  controlOutputStream;
 
     private final ControlMessageReader reader = new ControlMessageReader();
-    private final DeviceMessageWriter writer = new DeviceMessageWriter();
+    private final DeviceMessageWriter  writer = new DeviceMessageWriter();
+
 
     private DesktopConnection(LocalSocket videoSocket, LocalSocket controlSocket) throws IOException {
-        this.videoSocket = videoSocket;
-        this.controlSocket = controlSocket;
-        controlInputStream = controlSocket.getInputStream();
-        controlOutputStream = controlSocket.getOutputStream();
-        videoFd = videoSocket.getFileDescriptor();
+        this.localVideoSocket = videoSocket;
+        this.tcpVideoSocket   = null;
+
+        this.localControlSocket = controlSocket;
+        this.tcpControlSocket   = null;
+
+        this.controlInputStream  = controlSocket.getInputStream();
+        this.controlOutputStream = controlSocket.getOutputStream();
     }
 
-    private static LocalSocket connect(String abstractName) throws IOException {
-        LocalSocket localSocket = new LocalSocket();
+    private DesktopConnection(SocketChannel videoSocket, SocketChannel controlSocket) throws IOException {
+        this.localVideoSocket = null;
+        this.tcpVideoSocket   = videoSocket;
+
+        this.localControlSocket = null;
+        this.tcpControlSocket   = controlSocket;
+
+        this.controlInputStream  = controlSocket.socket().getInputStream();
+        this.controlOutputStream = controlSocket.socket().getOutputStream();
+    }
+
+    private static LocalSocket connect(final String abstractName) throws IOException {
+        final LocalSocket localSocket = new LocalSocket();
         localSocket.connect(new LocalSocketAddress(abstractName));
         return localSocket;
     }
 
-    public static DesktopConnection open(Device device, boolean tunnelForward) throws IOException {
-        LocalSocket videoSocket;
-        LocalSocket controlSocket;
+    private static LocalSocket listenAndAccept(final String abstractName) throws IOException {
+        LocalServerSocket serverSocket = new LocalServerSocket(abstractName);
+        try {
+            final LocalSocket sock = serverSocket.accept();
+            serverSocket.close();
+            return sock;
+        } finally {
+            serverSocket.close();
+        }
+    }
+
+    private static SocketChannel listenAndAccept(int port) throws IOException {
+        ServerSocketChannel serverSocket = ServerSocketChannel.open();
+        serverSocket.socket().setReuseAddress(true);
+        try {
+            serverSocket.socket().bind(new InetSocketAddress(port));
+            final SocketChannel sock = serverSocket.accept();
+            serverSocket.close();
+            return sock;
+        } finally {
+            serverSocket.close();
+        }
+    }
+
+    public static DesktopConnection open(Device device, boolean tunnelForward, int port) throws IOException {
+        DesktopConnection connection;
         if (tunnelForward) {
-            LocalServerSocket localServerSocket = new LocalServerSocket(SOCKET_NAME);
-            try {
-                videoSocket = localServerSocket.accept();
-                // send one byte so the client may read() to detect a connection error
+            // Accept connection and send one byte so the client may read() to detect a connection error
+            if (port == 0) {
+                LocalSocket videoSocket = listenAndAccept(SOCKET_NAME);
                 videoSocket.getOutputStream().write(0);
-                try {
-                    controlSocket = localServerSocket.accept();
-                } catch (IOException | RuntimeException e) {
-                    videoSocket.close();
-                    throw e;
-                }
-            } finally {
-                localServerSocket.close();
+                LocalSocket controlSocket = listenAndAccept(SOCKET_NAME);
+                connection = new DesktopConnection(videoSocket, controlSocket);
+                Ln.i("Forward connection accepted");
+            } else {
+                SocketChannel videoSocket = listenAndAccept(port);
+                videoSocket.socket().setSendBufferSize(2*1024*1024);
+                videoSocket.socket().getOutputStream().write(0);
+                SocketChannel controlSocket = listenAndAccept(port);
+                connection = new DesktopConnection(videoSocket, controlSocket);
+                Ln.i("Direct connection accepted");
             }
         } else {
-            videoSocket = connect(SOCKET_NAME);
-            try {
-                controlSocket = connect(SOCKET_NAME);
-            } catch (IOException | RuntimeException e) {
-                videoSocket.close();
-                throw e;
-            }
+            LocalSocket videoSocket   = connect(SOCKET_NAME);
+            LocalSocket controlSocket = connect(SOCKET_NAME);
+            connection = new DesktopConnection(videoSocket, controlSocket);
+            Ln.i("Connected to desktop");
         }
 
-        DesktopConnection connection = new DesktopConnection(videoSocket, controlSocket);
         Size videoSize = device.getScreenInfo().getVideoSize();
         connection.send(Device.getDeviceName(), videoSize.getWidth(), videoSize.getHeight());
         return connection;
     }
 
-    public void close() throws IOException {
-        videoSocket.shutdownInput();
-        videoSocket.shutdownOutput();
-        videoSocket.close();
-        controlSocket.shutdownInput();
-        controlSocket.shutdownOutput();
-        controlSocket.close();
+    public void close() {
+        if (localVideoSocket != null) {
+            try {
+                localVideoSocket.shutdownInput();
+                localVideoSocket.shutdownOutput();
+                localVideoSocket.close();
+            } catch (IOException e) {
+            }
+        }
+        if (tcpVideoSocket != null) {
+            try {
+                tcpVideoSocket.close();
+            } catch (IOException e) {
+            }
+        }
+        if (localControlSocket != null) {
+            try {
+                localControlSocket.shutdownInput();
+                localControlSocket.shutdownOutput();
+                localControlSocket.close();
+            } catch (IOException e) {
+            }
+        }
+        if (tcpControlSocket != null) {
+            try {
+                tcpControlSocket.close();
+            } catch (IOException e) {
+            }
+        }
+        Ln.i("DesktopConnection closed");
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
@@ -97,11 +161,20 @@ public final class DesktopConnection implements Closeable {
         buffer[DEVICE_NAME_FIELD_LENGTH + 1] = (byte) width;
         buffer[DEVICE_NAME_FIELD_LENGTH + 2] = (byte) (height >> 8);
         buffer[DEVICE_NAME_FIELD_LENGTH + 3] = (byte) height;
-        IO.writeFully(videoFd, buffer, 0, buffer.length);
+
+        if (tcpVideoSocket != null)
+            tcpVideoSocket.write(ByteBuffer.wrap(buffer));
+        else
+            localVideoSocket.getOutputStream().write(buffer);
     }
 
-    public FileDescriptor getVideoFd() {
-        return videoFd;
+    public WritableByteChannel getOut() throws IOException {
+        if (tcpVideoSocket != null) {
+//            tcpVideoSocket.configureBlocking(false);
+            return tcpVideoSocket;
+        } else {
+            return Channels.newChannel(localVideoSocket.getOutputStream());
+        }
     }
 
     public ControlMessage receiveControlMessage() throws IOException {

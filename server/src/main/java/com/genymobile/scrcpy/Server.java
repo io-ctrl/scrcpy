@@ -2,8 +2,11 @@ package com.genymobile.scrcpy;
 
 import android.graphics.Rect;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.Map;
 
 public final class Server {
 
@@ -13,40 +16,43 @@ public final class Server {
         // not instantiable
     }
 
-    private static void scrcpy(Options options) throws IOException {
+    private static void scrcpy(Options options) {
         final Device device = new Device(options);
-        boolean tunnelForward = options.isTunnelForward();
-        try (DesktopConnection connection = DesktopConnection.open(device, tunnelForward)) {
-            ScreenEncoder screenEncoder = new ScreenEncoder(options.getSendFrameMeta(), options.getBitRate());
+        try {
+            DesktopConnection connection = DesktopConnection.open(device, options.isTunnelForward(), options.getPort());
+            ScreenEncoder screenEncoder = new ScreenEncoder(options.getSendFrameMeta(), options.getBitRate(), options.isTunnelForward());
 
             if (options.getControl()) {
                 Controller controller = new Controller(device, connection);
 
                 // asynchronous
-                startController(controller);
+                startController(controller, screenEncoder, options.getTabletMode());
                 startDeviceMessageSender(controller.getSender());
             }
 
             try {
                 // synchronous
-                screenEncoder.streamScreen(device, connection.getVideoFd());
+                screenEncoder.streamScreen(device, connection.getOut());
             } catch (IOException e) {
                 // this is expected on close
                 Ln.d("Screen streaming stopped");
             }
+            connection.close();
+        } catch (Exception e) {
+            Ln.e("strcpy: ", e);
         }
     }
 
-    private static void startController(final Controller controller) {
+    private static void startController(final Controller controller,
+                                        final ScreenEncoder screenEncoder,
+                                        final boolean isTabletMode) {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                try {
-                    controller.control();
-                } catch (IOException e) {
-                    // this is expected on close
-                    Ln.d("Controller stopped");
-                }
+                controller.control();
+                screenEncoder.Abort();
+                if (isTabletMode) controller.turnScreenOff();
+                Ln.i("Controller stopped");
             }
         }).start();
     }
@@ -65,10 +71,12 @@ public final class Server {
         }).start();
     }
 
+    private static final int FIXED_ARGS = 6;
+
     @SuppressWarnings("checkstyle:MagicNumber")
     private static Options createOptions(String... args) {
-        if (args.length != 6) {
-            throw new IllegalArgumentException("Expecting 6 parameters");
+        if (args.length < FIXED_ARGS) {
+            throw new IllegalArgumentException("Expecting "+FIXED_ARGS+"+ parameters");
         }
 
         Options options = new Options();
@@ -91,6 +99,9 @@ public final class Server {
 
         boolean control = Boolean.parseBoolean(args[5]);
         options.setControl(control);
+
+        for (int i=FIXED_ARGS; i<args.length; ++i)
+            options.setOption(args[i]);
 
         return options;
     }
@@ -120,6 +131,51 @@ public final class Server {
         }
     }
 
+    private static boolean ForkIfRequired(final String... args) {
+        if (args.length <= FIXED_ARGS || !args[args.length-1].startsWith("fork"))
+            return false;
+
+        Ln.i("scrcpy is forking: "+android.os.Process.myPid());
+
+        String[] cmd = new String[args.length+3-1]; // don't pass "fork"!
+        cmd[0] = "app_process";
+        cmd[1] = "/"; // unused
+        cmd[2] = Server.class.getName();
+        for (int i=0; i<args.length-1; ++i)
+            cmd[3+i] = args[i];
+
+        Map<String, String> myenv = System.getenv();
+
+        String[] key = myenv.keySet().toArray(new String[0]);
+        String[] val = myenv.values().toArray(new String[0]);
+
+        String[] env = new String[myenv.size()+1];
+        for (int i=0; i<env.length-1; ++i)
+            env[i] = key[i]+"="+val[i];
+        env[env.length-1] = "CLASSPATH="+SERVER_PATH;
+
+        try {
+            final Process fork = Runtime.getRuntime().exec(cmd, env);
+            Ln.i("scrcpy forked");
+            if (args[args.length-1].equals("forkd")) { // Redirect child output to console
+                BufferedReader reader = new BufferedReader(new InputStreamReader(fork.getInputStream(),"UTF-8"));
+                try {
+                    String line;
+                    while((line=reader.readLine()) != null) {
+                        System.out.println(line);
+                    }
+                } catch(Exception e) {
+                }
+                reader.close();
+            }
+        }
+        catch (Exception e) {
+            Ln.e("Can't fork!", e);
+        }
+
+        return true;
+    }
+
     public static void main(String... args) throws Exception {
         Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
             @Override
@@ -128,8 +184,16 @@ public final class Server {
             }
         });
 
-        unlinkSelf();
+        if (ForkIfRequired(args)) return;
+
         Options options = createOptions(args);
+
+        Ln.i("scrcpy started: "+android.os.Process.myPid());
+        final DeviceControl deviceControl = new DeviceControl(options);
         scrcpy(options);
+        deviceControl.Finish();
+        Ln.i("scrcpy stopped");
+        // Don't delete in advance!
+        unlinkSelf();
     }
 }

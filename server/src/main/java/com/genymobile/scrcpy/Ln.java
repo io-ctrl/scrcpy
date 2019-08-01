@@ -55,6 +55,7 @@ public final class Ln {
             System.out.println(PREFIX + "ERROR: " + message);
             if (throwable != null) {
                 throwable.printStackTrace();
+                throwable.printStackTrace(System.out);
             }
         }
     }

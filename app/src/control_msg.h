@@ -25,12 +25,25 @@ enum control_msg_type {
     CONTROL_MSG_TYPE_GET_CLIPBOARD,
     CONTROL_MSG_TYPE_SET_CLIPBOARD,
     CONTROL_MSG_TYPE_SET_SCREEN_POWER_MODE,
+
+    CONTROL_MSG_TYPE_INJECT_TOUCH_EVENT = 100,
+    CONTROL_MSG_TYPE_COMMAND
 };
 
 enum screen_power_mode {
     // see <https://android.googlesource.com/platform/frameworks/base.git/+/pie-release-2/core/java/android/view/SurfaceControl.java#305>
     SCREEN_POWER_MODE_OFF = 0,
     SCREEN_POWER_MODE_NORMAL = 2,
+};
+
+enum control_command {
+    CONTROL_COMMAND_BACK_OR_SCREEN_ON,
+    CONTROL_COMMAND_EXPAND_NOTIFICATION_PANEL,
+    CONTROL_COMMAND_COLLAPSE_NOTIFICATION_PANEL,
+    CONTROL_COMMAND_QUIT,
+    CONTROL_COMMAND_PORTRAIT,
+    CONTROL_COMMAND_LANDSCAPE,
+    CONTROL_COMMAND_PING,
 };
 
 struct control_msg {
@@ -50,6 +63,11 @@ struct control_msg {
             struct position position;
         } inject_mouse_event;
         struct {
+            enum android_motionevent_action action;
+            int32_t touch_id;
+            struct position position;
+        } inject_touch_event;
+        struct {
             struct position position;
             int32_t hscroll;
             int32_t vscroll;
@@ -60,6 +78,9 @@ struct control_msg {
         struct {
             enum screen_power_mode mode;
         } set_screen_power_mode;
+        struct {
+            enum control_command action;
+        } command_event;
     };
 };
 

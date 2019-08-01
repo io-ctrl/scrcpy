@@ -8,10 +8,12 @@ import java.nio.charset.StandardCharsets;
 
 public class ControlMessageReader {
 
-    private static final int INJECT_KEYCODE_PAYLOAD_LENGTH = 9;
-    private static final int INJECT_MOUSE_EVENT_PAYLOAD_LENGTH = 17;
-    private static final int INJECT_SCROLL_EVENT_PAYLOAD_LENGTH = 20;
-    private static final int SET_SCREEN_POWER_MODE_PAYLOAD_LENGTH = 1;
+    private static final int INJECT_KEYCODE_PAYLOAD_LENGTH        =  9;
+    private static final int INJECT_MOUSE_EVENT_PAYLOAD_LENGTH    = 17;
+    private static final int INJECT_TOUCH_PAYLOAD_LENGTH          = 17;
+    private static final int INJECT_SCROLL_EVENT_PAYLOAD_LENGTH   = 20;
+    private static final int SET_SCREEN_POWER_MODE_PAYLOAD_LENGTH =  1;
+    private static final int COMMAND_PAYLOAD_LENGTH               =  1;
 
     public static final int TEXT_MAX_LENGTH = 300;
     public static final int CLIPBOARD_TEXT_MAX_LENGTH = 4093;
@@ -62,11 +64,17 @@ public class ControlMessageReader {
             case ControlMessage.TYPE_INJECT_MOUSE_EVENT:
                 msg = parseInjectMouseEvent();
                 break;
+            case ControlMessage.TYPE_INJECT_TOUCH_EVENT:
+                msg = parseInjectTouchEvent();
+                break;
             case ControlMessage.TYPE_INJECT_SCROLL_EVENT:
                 msg = parseInjectScrollEvent();
                 break;
             case ControlMessage.TYPE_SET_CLIPBOARD:
                 msg = parseSetClipboard();
+                break;
+            case ControlMessage.TYPE_COMMAND:
+                msg = parseCommandEvent();
                 break;
             case ControlMessage.TYPE_SET_SCREEN_POWER_MODE:
                 msg = parseSetScreenPowerMode();
@@ -130,6 +138,16 @@ public class ControlMessageReader {
         return ControlMessage.createInjectMouseEvent(action, buttons, position);
     }
 
+    private ControlMessage parseInjectTouchEvent() {
+        if (buffer.remaining() < INJECT_TOUCH_PAYLOAD_LENGTH) {
+            return null;
+        }
+        int action        = toUnsigned(buffer.get());
+        int touchId       = buffer.getInt();
+        Position position = readPosition(buffer);
+        return ControlMessage.createInjectTouchEvent(action, touchId, position);
+    }
+
     private ControlMessage parseInjectScrollEvent() {
         if (buffer.remaining() < INJECT_SCROLL_EVENT_PAYLOAD_LENGTH) {
             return null;
@@ -154,6 +172,14 @@ public class ControlMessageReader {
         }
         int mode = buffer.get();
         return ControlMessage.createSetScreenPowerMode(mode);
+    }
+
+    private ControlMessage parseCommandEvent() {
+        if (buffer.remaining() < COMMAND_PAYLOAD_LENGTH) {
+            return null;
+        }
+        int action = toUnsigned(buffer.get());
+        return ControlMessage.createCommandEvent(action);
     }
 
     private static Position readPosition(ByteBuffer buffer) {

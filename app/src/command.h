@@ -67,6 +67,12 @@ adb_reverse(const char *serial, const char *device_socket_name,
 process_t
 adb_reverse_remove(const char *serial, const char *device_socket_name);
 
+bool
+adb_connect(const char *serial);
+
+bool
+adb_disconnect(const char *serial);
+
 process_t
 adb_push(const char *serial, const char *local, const char *remote);
 

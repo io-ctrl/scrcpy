@@ -1,4 +1,5 @@
 #include "convert.h"
+#include "log.h"
 
 #define MAP(FROM, TO) case FROM: *to = TO; return true
 #define FAIL default: return false
@@ -136,6 +137,16 @@ convert_mouse_action(SDL_EventType from, enum android_motionevent_action *to) {
     }
 }
 
+static bool
+convert_finger_action(SDL_EventType from, enum android_motionevent_action *to) {
+    switch (from) {
+        MAP(SDL_FINGERDOWN,   AMOTION_EVENT_ACTION_DOWN);
+        MAP(SDL_FINGERUP,     AMOTION_EVENT_ACTION_UP);
+        MAP(SDL_FINGERMOTION, AMOTION_EVENT_ACTION_MOVE);
+        FAIL;
+    }
+}
+
 static enum android_motionevent_buttons
 convert_mouse_buttons(uint32_t state) {
     enum android_motionevent_buttons buttons = 0;
@@ -159,7 +170,7 @@ convert_mouse_buttons(uint32_t state) {
 
 bool
 input_key_from_sdl_to_android(const SDL_KeyboardEvent *from,
-                              struct control_msg *to) {
+                              struct control_msg *to, bool useIME) {
     to->type = CONTROL_MSG_TYPE_INJECT_KEYCODE;
 
     if (!convert_keycode_action(from->type, &to->inject_keycode.action)) {
@@ -172,6 +183,15 @@ input_key_from_sdl_to_android(const SDL_KeyboardEvent *from,
     }
 
     to->inject_keycode.metastate = convert_meta_state(mod);
+    // Don't pass ASCII symbols.
+    const uint16_t AlphaMods = KMOD_LSHIFT | KMOD_RSHIFT | KMOD_CAPS | KMOD_NUM;
+    if (!useIME || (mod & ~AlphaMods) != 0) return true;
+
+    enum android_keycode ak = to->inject_keycode.keycode;
+    if (AKEYCODE_0 <= ak && ak <= AKEYCODE_POUND) return false;
+    if (AKEYCODE_A <= ak && ak <= AKEYCODE_Z) return false;
+    if (ak == AKEYCODE_COMMA || ak == AKEYCODE_PERIOD || ak == AKEYCODE_SPACE || ak == AKEYCODE_PLUS) return false;
+    if (AKEYCODE_GRAVE <= ak && ak <= AKEYCODE_AT) return false;
 
     return true;
 }
@@ -205,6 +225,73 @@ mouse_motion_from_sdl_to_android(const SDL_MouseMotionEvent *from,
     to->inject_mouse_event.position.screen_size = screen_size;
     to->inject_mouse_event.position.point.x = from->x;
     to->inject_mouse_event.position.point.y = from->y;
+
+    return true;
+}
+
+static bool finger_id_from_sdl_to_android(SDL_FingerID fingerId,
+                                          SDL_EventType type,
+                                          struct control_msg *to) {
+    enum { MAX_FINGERS = 10 };
+
+    typedef uint16_t mask_t;
+    static mask_t in_use = 0;
+    static SDL_FingerID ids[MAX_FINGERS];
+
+    const SDL_FingerID badId = ~((SDL_FingerID)0);
+
+    if (type == SDL_FINGERDOWN) {
+        mask_t mask = 1;
+        for (int i=0; i < MAX_FINGERS; mask <<= 1, i++)
+            if ((in_use & mask) == 0) {
+                to->inject_touch_event.touch_id = i;
+                ids[i] = fingerId;
+                if (in_use)
+                    to->inject_touch_event.action = AMOTION_EVENT_ACTION_POINTER_DOWN;
+                in_use |= mask;
+                return true;
+            }
+        // Out of free fingers. Are there orphan ids?
+        LOGW("Out of fingers");
+    } else {
+        for (int i=0; i < MAX_FINGERS; i++)
+            if (ids[i] == fingerId) {
+                to->inject_touch_event.touch_id = i;
+                if (type == SDL_FINGERUP) {
+                    ids[i] = badId;
+                    in_use &= ~(1<<i);
+                    if (in_use)
+                        to->inject_touch_event.action = AMOTION_EVENT_ACTION_POINTER_UP;
+                }
+                return true;
+            }
+        LOGW("Orphan finger");
+    }
+
+    // Reset the system
+    in_use = 0;
+    for (int i=0; i < MAX_FINGERS; i++) ids[i] = badId;
+    // Tell the server to reset as well
+    to->inject_touch_event.action = AMOTION_EVENT_ACTION_CANCEL;
+    return true;
+}
+
+bool
+finger_from_sdl_to_android(const SDL_TouchFingerEvent *from,
+                           struct size screen_size,
+                           struct control_msg *to) {
+    to->type = CONTROL_MSG_TYPE_INJECT_TOUCH_EVENT;
+
+    if (!convert_finger_action(from->type, &to->inject_touch_event.action)) {
+        return false;
+    }
+    if (!finger_id_from_sdl_to_android(from->fingerId, from->type, to)) {
+        return false;
+    }
+
+    to->inject_touch_event.position.screen_size = screen_size;
+    to->inject_touch_event.position.point.x = from->x * screen_size.width;
+    to->inject_touch_event.position.point.y = from->y * screen_size.height;
 
     return true;
 }

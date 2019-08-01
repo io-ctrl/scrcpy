@@ -99,7 +99,9 @@ action_menu(struct controller *controller, int actions) {
 static void
 press_back_or_turn_screen_on(struct controller *controller) {
     struct control_msg msg;
-    msg.type = CONTROL_MSG_TYPE_BACK_OR_SCREEN_ON;
+    msg.type = CONTROL_MSG_TYPE_COMMAND;
+    msg.command_event.action =
+            CONTROL_COMMAND_BACK_OR_SCREEN_ON;
 
     if (!controller_push_msg(controller, &msg)) {
         LOGW("Could not request 'turn screen on'");
@@ -109,7 +111,9 @@ press_back_or_turn_screen_on(struct controller *controller) {
 static void
 expand_notification_panel(struct controller *controller) {
     struct control_msg msg;
-    msg.type = CONTROL_MSG_TYPE_EXPAND_NOTIFICATION_PANEL;
+    msg.type = CONTROL_MSG_TYPE_COMMAND;
+    msg.command_event.action =
+            CONTROL_COMMAND_EXPAND_NOTIFICATION_PANEL;
 
     if (!controller_push_msg(controller, &msg)) {
         LOGW("Could not request 'expand notification panel'");
@@ -119,10 +123,54 @@ expand_notification_panel(struct controller *controller) {
 static void
 collapse_notification_panel(struct controller *controller) {
     struct control_msg msg;
-    msg.type = CONTROL_MSG_TYPE_COLLAPSE_NOTIFICATION_PANEL;
+    msg.type = CONTROL_MSG_TYPE_COMMAND;
+    msg.command_event.action =
+            CONTROL_COMMAND_COLLAPSE_NOTIFICATION_PANEL;
 
     if (!controller_push_msg(controller, &msg)) {
         LOGW("Could not request 'collapse notification panel'");
+    }
+}
+
+void
+input_manager_send_quit(struct input_manager *input_manager) {
+    struct control_msg msg;
+    msg.type = CONTROL_MSG_TYPE_COMMAND;
+    msg.command_event.action =
+            CONTROL_COMMAND_QUIT;
+
+    if (!controller_push_msg(input_manager->controller, &msg)) {
+        LOGW("Could not send QUIT");
+    }
+}
+
+void
+input_manager_send_ping(struct input_manager *input_manager) {
+    struct control_msg msg;
+    msg.type = CONTROL_MSG_TYPE_COMMAND;
+    msg.command_event.action =
+            CONTROL_COMMAND_PING;
+
+    if (!controller_push_msg(input_manager->controller, &msg)) {
+        LOGW("Could not send PING");
+    }
+}
+
+void
+input_manager_send_rotation(struct input_manager *input_manager) {
+    if (!input_manager->screen->has_frame) return;
+    if (!input_manager->screen->fullscreen) return;
+
+    int w = 0, h = 0;
+    SDL_GetWindowSize(input_manager->screen->window, &w, &h);
+
+    struct control_msg msg;
+    msg.type = CONTROL_MSG_TYPE_COMMAND;
+    msg.command_event.action =
+            w < h ? CONTROL_COMMAND_PORTRAIT : CONTROL_COMMAND_LANDSCAPE;
+
+    if (!controller_push_msg(input_manager->controller, &msg)) {
+        LOGW("Could not send ROTATION");
     }
 }
 
@@ -211,13 +259,17 @@ clipboard_paste(struct controller *controller) {
 
 void
 input_manager_process_text_input(struct input_manager *input_manager,
-                                 const SDL_TextInputEvent *event) {
-    char c = event->text[0];
-    if (isalpha(c) || c == ' ') {
-        SDL_assert(event->text[1] == '\0');
-        // letters and space are handled as raw key event
-        return;
+                                 const SDL_TextInputEvent *event, bool useIME) {
+    if (!useIME) {
+        char c = event->text[0];
+
+        if (isalpha(c) || c == ' ') {
+            SDL_assert(event->text[1] == '\0');
+            // letters and space are handled as raw key event
+            return;
+        }
     }
+
     struct control_msg msg;
     msg.type = CONTROL_MSG_TYPE_INJECT_TEXT;
     msg.inject_text.text = SDL_strdup(event->text);
@@ -231,21 +283,21 @@ input_manager_process_text_input(struct input_manager *input_manager,
     }
 }
 
-void
+bool
 input_manager_process_key(struct input_manager *input_manager,
                           const SDL_KeyboardEvent *event,
-                          bool control) {
+                          bool control, bool useIME) {
     // control: indicates the state of the command-line option --no-control
     // ctrl: the Ctrl key
 
     bool ctrl = event->keysym.mod & (KMOD_LCTRL | KMOD_RCTRL);
-    bool alt = event->keysym.mod & (KMOD_LALT | KMOD_RALT);
+    bool alt  = event->keysym.mod & (KMOD_LALT | KMOD_RALT);
     bool meta = event->keysym.mod & (KMOD_LGUI | KMOD_RGUI);
 
     if (alt) {
         // no shortcut involves Alt or Meta, and they should not be forwarded
         // to the device
-        return;
+        return true;
     }
 
     struct controller *controller = input_manager->controller;
@@ -262,33 +314,33 @@ input_manager_process_key(struct input_manager *input_manager,
                 if (control && ctrl && !meta && !shift && !repeat) {
                     action_home(controller, action);
                 }
-                return;
+                return true;
             case SDLK_b: // fall-through
             case SDLK_BACKSPACE:
                 if (control && ctrl && !meta && !shift && !repeat) {
                     action_back(controller, action);
                 }
-                return;
+                return true;
             case SDLK_s:
                 if (control && ctrl && !meta && !shift && !repeat) {
                     action_app_switch(controller, action);
                 }
-                return;
+                return true;
             case SDLK_m:
                 if (control && ctrl && !meta && !shift && !repeat) {
                     action_menu(controller, action);
                 }
-                return;
+                return true;
             case SDLK_p:
                 if (control && ctrl && !meta && !shift && !repeat) {
                     action_power(controller, action);
                 }
-                return;
+                return true;
             case SDLK_o:
-                if (control && ctrl && !shift && !meta && down) {
-                    set_screen_power_mode(controller, SCREEN_POWER_MODE_OFF);
+                if (control && ctrl && !meta && down) {
+                    set_screen_power_mode(controller, !shift ? SCREEN_POWER_MODE_OFF : SCREEN_POWER_MODE_NORMAL);
                 }
-                return;
+                return true;
             case SDLK_DOWN:
 #ifdef __APPLE__
                 if (control && !ctrl && meta && !shift) {
@@ -298,7 +350,7 @@ input_manager_process_key(struct input_manager *input_manager,
                     // forward repeated events
                     action_volume_down(controller, action);
                 }
-                return;
+                return true;
             case SDLK_UP:
 #ifdef __APPLE__
                 if (control && !ctrl && meta && !shift) {
@@ -308,12 +360,12 @@ input_manager_process_key(struct input_manager *input_manager,
                     // forward repeated events
                     action_volume_up(controller, action);
                 }
-                return;
+                return true;
             case SDLK_c:
                 if (control && ctrl && !meta && !shift && !repeat && down) {
                     request_device_clipboard(controller);
                 }
-                return;
+                return true;
             case SDLK_v:
                 if (control && ctrl && !meta && !repeat && down) {
                     if (shift) {
@@ -324,29 +376,35 @@ input_manager_process_key(struct input_manager *input_manager,
                         clipboard_paste(controller);
                     }
                 }
-                return;
+                return true;
             case SDLK_f:
                 if (ctrl && !meta && !shift && !repeat && down) {
                     screen_switch_fullscreen(input_manager->screen);
                 }
-                return;
+                return true;
+            case SDLK_q:
+                if (ctrl && !meta && !shift && !repeat
+                        && event->type == SDL_KEYDOWN) {
+                    return false;
+                }
+                return true;
             case SDLK_x:
                 if (ctrl && !meta && !shift && !repeat && down) {
                     screen_resize_to_fit(input_manager->screen);
                 }
-                return;
+                return true;
             case SDLK_g:
                 if (ctrl && !meta && !shift && !repeat && down) {
                     screen_resize_to_pixel_perfect(input_manager->screen);
                 }
-                return;
+                return true;
             case SDLK_i:
                 if (ctrl && !meta && !shift && !repeat && down) {
                     struct fps_counter *fps_counter =
                         input_manager->video_buffer->fps_counter;
                     switch_fps_counter_state(fps_counter);
                 }
-                return;
+                return true;
             case SDLK_n:
                 if (control && ctrl && !meta && !repeat && down) {
                     if (shift) {
@@ -355,27 +413,34 @@ input_manager_process_key(struct input_manager *input_manager,
                         expand_notification_panel(controller);
                     }
                 }
-                return;
+                return true;
         }
 
-        return;
+        return true;
     }
 
     if (!control) {
-        return;
+        return true;
     }
 
     struct control_msg msg;
-    if (input_key_from_sdl_to_android(event, &msg)) {
+    if (input_key_from_sdl_to_android(event, &msg, useIME)) {
         if (!controller_push_msg(controller, &msg)) {
             LOGW("Could not request 'inject keycode'");
         }
     }
+    return true;
 }
 
 void
 input_manager_process_mouse_motion(struct input_manager *input_manager,
                                    const SDL_MouseMotionEvent *event) {
+    // Windows generates mouse events for touch events.
+    if (event->timestamp <= input_manager->finger_timestamp)
+        return; // Counter overflow
+    if (event->timestamp - input_manager->finger_timestamp < 50)
+        return; // Too soon for manual action
+
     if (!event->state) {
         // do not send motion events when no button is pressed
         return;
@@ -401,6 +466,13 @@ void
 input_manager_process_mouse_button(struct input_manager *input_manager,
                                    const SDL_MouseButtonEvent *event,
                                    bool control) {
+    // Windows generates mouse events for touch events.
+    // It also generates "right click" for long touch.
+    if (event->timestamp <= input_manager->finger_timestamp)
+        return; // Counter overflow
+    if (event->timestamp - input_manager->finger_timestamp < 50)
+        return; // Too soon for manual action
+
     if (event->type == SDL_MOUSEBUTTONDOWN) {
         if (control && event->button == SDL_BUTTON_RIGHT) {
             press_back_or_turn_screen_on(input_manager->controller);
@@ -432,6 +504,21 @@ input_manager_process_mouse_button(struct input_manager *input_manager,
                                          &msg)) {
         if (!controller_push_msg(input_manager->controller, &msg)) {
             LOGW("Could not request 'inject mouse button event'");
+        }
+    }
+}
+
+void
+input_manager_process_finger(struct input_manager *input_manager,
+                                  const SDL_TouchFingerEvent *event) {
+    input_manager->finger_timestamp = event->timestamp;
+
+    struct control_msg msg;
+    if (finger_from_sdl_to_android(event,
+                                   input_manager->screen->frame_size,
+                                   &msg)) {
+        if (!controller_push_msg(input_manager->controller, &msg)) {
+            LOGW("Could not send touch event");
         }
     }
 }

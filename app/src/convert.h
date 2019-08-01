@@ -18,7 +18,7 @@ struct complete_mouse_wheel_event {
 
 bool
 input_key_from_sdl_to_android(const SDL_KeyboardEvent *from,
-                              struct control_msg *to);
+                              struct control_msg *to, bool useIME);
 
 bool
 mouse_button_from_sdl_to_android(const SDL_MouseButtonEvent *from,
@@ -31,6 +31,11 @@ bool
 mouse_motion_from_sdl_to_android(const SDL_MouseMotionEvent *from,
                                  struct size screen_size,
                                  struct control_msg *to);
+
+bool
+finger_from_sdl_to_android(const SDL_TouchFingerEvent *from,
+                           struct size screen_size,
+                           struct control_msg *to);
 
 // on Android, a scroll event requires the current mouse position
 bool

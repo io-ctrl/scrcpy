@@ -20,6 +20,10 @@ struct scrcpy_options {
     bool display;
     bool turn_screen_off;
     bool render_expired_frames;
+    uint16_t density;
+    const char *size;
+    bool tablet;
+    bool useIME;
 };
 
 bool

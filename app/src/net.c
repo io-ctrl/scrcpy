@@ -12,6 +12,7 @@
 # include <netinet/in.h>
 # include <arpa/inet.h>
 # include <unistd.h>
+# include <netinet/tcp.h>
 # define SOCKET_ERROR -1
   typedef struct sockaddr_in SOCKADDR_IN;
   typedef struct sockaddr SOCKADDR;
@@ -36,7 +37,11 @@ net_connect(uint32_t addr, uint16_t port) {
         net_close(sock);
         return INVALID_SOCKET;
     }
+    int one = 1;
+    setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (const char*)&one, sizeof(one));
 
+    size_t size = 2*1024*1024;
+    setsockopt(sock, SOL_SOCKET, SO_RCVBUF, (const char*)&size, sizeof(size));
     return sock;
 }
 

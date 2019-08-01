@@ -13,16 +13,17 @@ struct input_manager {
     struct controller *controller;
     struct video_buffer *video_buffer;
     struct screen *screen;
+    uint32_t finger_timestamp;
 };
 
 void
 input_manager_process_text_input(struct input_manager *input_manager,
-                                 const SDL_TextInputEvent *event);
+                                 const SDL_TextInputEvent *event, bool useIME);
 
-void
+bool
 input_manager_process_key(struct input_manager *input_manager,
                           const SDL_KeyboardEvent *event,
-                          bool control);
+                          bool control, bool useIME);
 
 void
 input_manager_process_mouse_motion(struct input_manager *input_manager,
@@ -36,5 +37,18 @@ input_manager_process_mouse_button(struct input_manager *input_manager,
 void
 input_manager_process_mouse_wheel(struct input_manager *input_manager,
                                   const SDL_MouseWheelEvent *event);
+
+void
+input_manager_process_finger(struct input_manager *input_manager,
+                                  const SDL_TouchFingerEvent *event);
+
+void
+input_manager_send_quit(struct input_manager *input_manager);
+
+void
+input_manager_send_ping(struct input_manager *input_manager);
+
+void
+input_manager_send_rotation(struct input_manager *input_manager);
 
 #endif

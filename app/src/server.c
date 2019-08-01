@@ -108,7 +108,7 @@ enable_tunnel(struct server *server) {
 
 static bool
 disable_tunnel(struct server *server) {
-    if (server->tunnel_forward) {
+    if (server->tunnel_forward && server->tunnel_enabled) {
         return disable_tunnel_forward(server->serial, server->local_port);
     }
     return disable_tunnel_reverse(server->serial);
@@ -120,6 +120,14 @@ execute_server(struct server *server, const struct server_params *params) {
     char bit_rate_string[11];
     sprintf(max_size_string, "%"PRIu16, params->max_size);
     sprintf(bit_rate_string, "%"PRIu32, params->bit_rate);
+    char density_string[8+5+1];
+    sprintf(density_string,  "density=%"PRIu16, params->density);
+    char size_string[5+5+1+5+1];
+    snprintf(size_string, sizeof(size_string), "size=%s", params->size ? params->size : "0:0");
+    char tablet_string[7+5+1];
+    sprintf(tablet_string, "tablet=%s", params->tablet ? "true" : "false");
+    char local_port_string[5+5+1];
+    sprintf(local_port_string, "port=%u", params->local_port);
     const char *const cmd[] = {
         "shell",
         "CLASSPATH=/data/local/tmp/" SERVER_FILENAME,
@@ -132,11 +140,18 @@ execute_server(struct server *server, const struct server_params *params) {
         params->crop ? params->crop : "-",
         params->send_frame_meta ? "true" : "false",
         params->control ? "true" : "false",
+        density_string,
+        size_string,
+        tablet_string,
+        local_port_string,
+#ifdef WINDOWS_NOCONSOLE
+        "fork",
+#else
+        "forkd",
+#endif
     };
     return adb_execute(server->serial, cmd, sizeof(cmd) / sizeof(cmd[0]));
 }
-
-#define IPV4_LOCALHOST 0x7F000001
 
 static socket_t
 listen_on_port(uint16_t port) {
@@ -144,8 +159,8 @@ listen_on_port(uint16_t port) {
 }
 
 static socket_t
-connect_and_read_byte(uint16_t port) {
-    socket_t socket = net_connect(IPV4_LOCALHOST, port);
+connect_and_read_byte(uint32_t addr, uint16_t port) {
+    socket_t socket = net_connect(addr, port);
     if (socket == INVALID_SOCKET) {
         return INVALID_SOCKET;
     }
@@ -162,10 +177,10 @@ connect_and_read_byte(uint16_t port) {
 }
 
 static socket_t
-connect_to_server(uint16_t port, uint32_t attempts, uint32_t delay) {
+connect_to_server(uint32_t addr, uint16_t port, uint32_t attempts, uint32_t delay) {
     do {
         LOGD("Remaining connection attempts: %d", (int) attempts);
-        socket_t socket = connect_and_read_byte(port);
+        socket_t socket = connect_and_read_byte(addr, port);
         if (socket != INVALID_SOCKET) {
             // it worked!
             return socket;
@@ -193,6 +208,17 @@ server_init(struct server *server) {
     *server = (struct server) SERVER_INITIALIZER;
 }
 
+static uint32_t
+serial2addr(const char *serial) {
+    uint32_t addr = 0;
+    for (int i=0; i<4; i++) {
+        addr <<= 8;
+        addr += strtol(serial, (char**)&serial, 10);
+        serial++;
+    }
+    return addr;
+}
+
 bool
 server_start(struct server *server, const char *serial,
              const struct server_params *params) {
@@ -205,12 +231,18 @@ server_start(struct server *server, const char *serial,
         }
     }
 
+    bool isIP = adb_connect(serial);
+
     if (!push_server(serial)) {
         SDL_free(server->serial);
         return false;
     }
 
-    if (!enable_tunnel(server)) {
+    if (isIP) {
+        server->addr = serial2addr(serial);
+        server->tunnel_forward = true;
+    }
+    else if (!enable_tunnel(server)) {
         SDL_free(server->serial);
         return false;
     }
@@ -246,7 +278,7 @@ server_start(struct server *server, const char *serial,
         return false;
     }
 
-    server->tunnel_enabled = true;
+    if (!isIP) server->tunnel_enabled = true;
 
     return true;
 }
@@ -268,27 +300,36 @@ server_connect_to(struct server *server) {
         // we don't need the server socket anymore
         close_socket(&server->server_socket);
     } else {
+        LOGD("Trying to connect...");
         uint32_t attempts = 100;
         uint32_t delay = 100; // ms
         server->video_socket =
-            connect_to_server(server->local_port, attempts, delay);
+            connect_to_server(server->addr, server->local_port, attempts, delay);
         if (server->video_socket == INVALID_SOCKET) {
+            LOGE("Could not connect video");
             return false;
         }
 
         // we know that the device is listening, we don't need several attempts
         server->control_socket =
-            net_connect(IPV4_LOCALHOST, server->local_port);
+            net_connect(server->addr, server->local_port);
         if (server->control_socket == INVALID_SOCKET) {
+            LOGE("Could not connect control");
             return false;
         }
+        LOGD("Connected!");
     }
 
     // we don't need the adb tunnel anymore
-    disable_tunnel(server); // ignore failure
-    server->tunnel_enabled = false;
+    if (server->tunnel_enabled) {
+        disable_tunnel(server); // ignore failure
+        server->tunnel_enabled = false;
+    }
 
-    return true;
+#ifdef WINDOWS_NOCONSOLE
+    adb_disconnect(server->serial);
+#endif
+   return true;
 }
 
 void
@@ -316,6 +357,7 @@ server_stop(struct server *server) {
         // ignore failure
         disable_tunnel(server);
     }
+    adb_disconnect(server->serial);
 }
 
 void

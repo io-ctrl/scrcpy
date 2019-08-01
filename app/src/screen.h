@@ -19,6 +19,7 @@ struct screen {
     bool has_frame;
     bool fullscreen;
     bool no_window;
+    bool frame_changed;
 };
 
 #define SCREEN_INITIALIZER {  \
@@ -36,6 +37,7 @@ struct screen {
     .has_frame = false,   \
     .fullscreen = false,  \
     .no_window = false,   \
+    .frame_changed = false, \
 }
 
 // initialize default values

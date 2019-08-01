@@ -30,6 +30,10 @@ struct args {
     bool always_on_top;
     bool turn_screen_off;
     bool render_expired_frames;
+    int density;
+    const char *size;
+    bool tablet;
+    bool useIME;
 };
 
 static void usage(const char *arg0) {
@@ -43,11 +47,17 @@ static void usage(const char *arg0) {
         "        Unit suffixes are supported: 'K' (x1000) and 'M' (x1000000).\n"
         "        Default is %d.\n"
         "\n"
+        "    -B, --tablet-mode\n"
+        "        Synchronize device orientation with PC.\n"
+        "\n"
         "    -c, --crop width:height:x:y\n"
         "        Crop the device screen on the server.\n"
         "        The values are expressed in the device natural orientation\n"
         "        (typically, portrait for a phone, landscape for a tablet).\n"
         "        Any --max-size value is computed on the cropped size.\n"
+        "\n"
+        "    -d, --density dpi\n"
+        "        Set the density for the device screen.\n"
         "\n"
         "    -f, --fullscreen\n"
         "        Start in fullscreen.\n"
@@ -57,6 +67,9 @@ static void usage(const char *arg0) {
         "\n"
         "    -h, --help\n"
         "        Print this help.\n"
+        "\n"
+        "    -i, --ime\n"
+        "        Use IME compatible with ADBKeyBoard.\n"
         "\n"
         "    -m, --max-size value\n"
         "        Limit both the width and height of the video to value. The\n"
@@ -162,6 +175,9 @@ static void usage(const char *arg0) {
         "\n"
         "    Ctrl+i\n"
         "        enable/disable FPS counter (print frames/second in logs)\n"
+        "\n"
+        "    Ctrl+q\n"
+        "        quit\n"
         "\n"
         "    Drag & drop APK file\n"
         "        install APK from computer\n"
@@ -302,8 +318,10 @@ parse_args(struct args *args, int argc, char *argv[]) {
         {"always-on-top",         no_argument,       NULL, 'T'},
         {"bit-rate",              required_argument, NULL, 'b'},
         {"crop",                  required_argument, NULL, 'c'},
+        {"density",               required_argument, NULL, 'd'},
         {"fullscreen",            no_argument,       NULL, 'f'},
         {"help",                  no_argument,       NULL, 'h'},
+        {"ime",                   no_argument,       NULL, 'i'},
         {"max-size",              required_argument, NULL, 'm'},
         {"no-control",            no_argument,       NULL, 'n'},
         {"no-display",            no_argument,       NULL, 'N'},
@@ -315,11 +333,12 @@ parse_args(struct args *args, int argc, char *argv[]) {
         {"serial",                required_argument, NULL, 's'},
         {"show-touches",          no_argument,       NULL, 't'},
         {"turn-screen-off",       no_argument,       NULL, 'S'},
+        {"tablet-mode",           no_argument,       NULL, 'B'},
         {"version",               no_argument,       NULL, 'v'},
         {NULL,                    0,                 NULL, 0  },
     };
     int c;
-    while ((c = getopt_long(argc, argv, "b:c:fF:hm:nNp:r:s:StTv", long_options,
+    while ((c = getopt_long(argc, argv, "b:Bc:d:fF:him:nNp:r:s:StTv", long_options,
                             NULL)) != -1) {
         switch (c) {
             case 'b':
@@ -327,8 +346,14 @@ parse_args(struct args *args, int argc, char *argv[]) {
                     return false;
                 }
                 break;
+            case 'B':
+                args->tablet = true;
+                break;
             case 'c':
                 args->crop = optarg;
+                break;
+            case 'd':
+                args->density = atoi(optarg);
                 break;
             case 'f':
                 args->fullscreen = true;
@@ -340,6 +365,9 @@ parse_args(struct args *args, int argc, char *argv[]) {
                 break;
             case 'h':
                 args->help = true;
+                break;
+            case 'i':
+                args->useIME = true;
                 break;
             case 'm':
                 if (!parse_max_size(optarg, &args->max_size)) {
@@ -414,6 +442,11 @@ parse_args(struct args *args, int argc, char *argv[]) {
         }
     }
 
+    if (args->density != 0 && (args->density < 72 || args->density > 600)) {
+        LOGE("Density specified is out of rtange (72-600)");
+        return false;
+    }
+
     if (args->no_control && args->turn_screen_off) {
         LOGE("Could not request to turn screen off if control is disabled");
         return false;
@@ -444,6 +477,10 @@ main(int argc, char *argv[]) {
         .always_on_top = false,
         .no_control = false,
         .no_display = false,
+        .density = 0,
+        .size = NULL,
+        .tablet = false,
+        .useIME = false,
         .turn_screen_off = false,
         .render_expired_frames = false,
     };
@@ -486,6 +523,10 @@ main(int argc, char *argv[]) {
         .always_on_top = args.always_on_top,
         .control = !args.no_control,
         .display = !args.no_display,
+        .density = args.density,
+        .size = args.size,
+        .tablet = args.tablet,
+        .useIME = args.useIME,
         .turn_screen_off = args.turn_screen_off,
         .render_expired_frames = args.render_expired_frames,
     };

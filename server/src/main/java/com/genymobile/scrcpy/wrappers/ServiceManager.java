@@ -10,12 +10,17 @@ import java.lang.reflect.Method;
 public final class ServiceManager {
     private final Method getServiceMethod;
 
-    private WindowManager windowManager;
-    private DisplayManager displayManager;
-    private InputManager inputManager;
-    private PowerManager powerManager;
-    private StatusBarManager statusBarManager;
-    private ClipboardManager clipboardManager;
+    private WindowManager      windowManager;
+    private DisplayManager     displayManager;
+    private InputManager       inputManager;
+    private PowerManager       powerManager;
+    private StatusBarManager   statusBarManager;
+    private ClipboardManager   clipboardManager;
+    private ActivityManager    activityManager;
+    private InputMethodManager inputMethodManager;
+    private PackageManager     packageManager;
+
+    public static final int USER_CURRENT = -2;
 
     public ServiceManager() {
         try {
@@ -75,5 +80,26 @@ public final class ServiceManager {
             clipboardManager = new ClipboardManager(getService("clipboard", "android.content.IClipboard"));
         }
         return clipboardManager;
+    }
+
+    public ActivityManager getActivityManager() {
+        if (activityManager == null) {
+            activityManager = new ActivityManager(getService("activity", "android.app.IActivityManager"));
+        }
+        return activityManager;
+    }
+
+    public InputMethodManager getInputMethodManager() {
+        if (inputMethodManager == null) {
+            inputMethodManager = new InputMethodManager(getService("input_method", "com.android.internal.view.IInputMethodManager"));
+        }
+        return inputMethodManager;
+    }
+
+    public PackageManager getPackageManager() {
+        if (packageManager == null) {
+            packageManager = new PackageManager(getService("package", "android.content.pm.IPackageManager"));
+        }
+        return packageManager;
     }
 }

@@ -9,17 +9,21 @@ import android.media.MediaFormat;
 import android.os.IBinder;
 import android.view.Surface;
 
-import java.io.FileDescriptor;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.WritableByteChannel;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ScreenEncoder implements Device.RotationListener {
 
     private static final int DEFAULT_FRAME_RATE = 60; // fps
-    private static final int DEFAULT_I_FRAME_INTERVAL = 10; // seconds
+    private static final int REDUCED_FRAME_RATE = 30; // fps
 
-    private static final int REPEAT_FRAME_DELAY = 6; // repeat after 6 frames
+    private static final int DEFAULT_I_FRAME_INTERVAL   = 5; // seconds
+    private static final int INCREASED_I_FRAME_INTERVAL = 1; // seconds
+
+    private static final int REPEAT_FRAME_DELAY    = 6; // repeat after 6 frames
+    private static final int REPEAT_FRAME_NO_DELAY = 1; // repeat after 1 frame
 
     private static final int MICROSECONDS_IN_ONE_SECOND = 1_000_000;
     private static final int NO_PTS = -1;
@@ -30,18 +34,26 @@ public class ScreenEncoder implements Device.RotationListener {
     private int bitRate;
     private int frameRate;
     private int iFrameInterval;
+    private int repeatFrameDelay;
     private boolean sendFrameMeta;
     private long ptsOrigin;
 
-    public ScreenEncoder(boolean sendFrameMeta, int bitRate, int frameRate, int iFrameInterval) {
-        this.sendFrameMeta = sendFrameMeta;
-        this.bitRate = bitRate;
-        this.frameRate = frameRate;
-        this.iFrameInterval = iFrameInterval;
+    private boolean abort = false;
+
+    private ScreenEncoder(boolean sendFrameMeta, int bitRate, int frameRate, int iFrameInterval, int repeatFrameDelay) {
+        this.sendFrameMeta    = sendFrameMeta;
+        this.bitRate          = bitRate;
+        this.frameRate        = frameRate;
+        this.iFrameInterval   = iFrameInterval;
+        this.repeatFrameDelay = repeatFrameDelay;
+        Ln.i("bitRate: "+bitRate+" frameRate: "+frameRate+" iFrameInterval: "+iFrameInterval+" repeatFrameDelay: "+repeatFrameDelay);
     }
 
-    public ScreenEncoder(boolean sendFrameMeta, int bitRate) {
-        this(sendFrameMeta, bitRate, DEFAULT_FRAME_RATE, DEFAULT_I_FRAME_INTERVAL);
+    public ScreenEncoder(boolean sendFrameMeta, int bitRate, boolean isTunnelForward) {
+        this(sendFrameMeta, bitRate
+                , isTunnelForward ? REDUCED_FRAME_RATE : DEFAULT_FRAME_RATE
+                , isTunnelForward ? INCREASED_I_FRAME_INTERVAL : DEFAULT_I_FRAME_INTERVAL
+                , isTunnelForward ? REPEAT_FRAME_NO_DELAY : REPEAT_FRAME_DELAY);
     }
 
     @Override
@@ -53,11 +65,11 @@ public class ScreenEncoder implements Device.RotationListener {
         return rotationChanged.getAndSet(false);
     }
 
-    public void streamScreen(Device device, FileDescriptor fd) throws IOException {
-        MediaFormat format = createFormat(bitRate, frameRate, iFrameInterval);
+    public void streamScreen(Device device, WritableByteChannel outputChannel) throws IOException {
+        MediaFormat format = createFormat(bitRate, frameRate, iFrameInterval, repeatFrameDelay);
         device.setRotationListener(this);
-        boolean alive;
         try {
+            boolean alive;
             do {
                 MediaCodec codec = createCodec();
                 IBinder display = createDisplay();
@@ -69,7 +81,7 @@ public class ScreenEncoder implements Device.RotationListener {
                 setDisplaySurface(display, surface, contentRect, videoRect);
                 codec.start();
                 try {
-                    alive = encode(codec, fd);
+                    alive = encode(codec, outputChannel);
                     // do not call stop() on exception, it would trigger an IllegalStateException
                     codec.stop();
                 } finally {
@@ -77,19 +89,24 @@ public class ScreenEncoder implements Device.RotationListener {
                     codec.release();
                     surface.release();
                 }
-            } while (alive);
+            } while (alive && !abort);
         } finally {
             device.setRotationListener(null);
         }
     }
 
-    private boolean encode(MediaCodec codec, FileDescriptor fd) throws IOException {
+    public void Abort() { abort = true; }
+
+    private boolean encode(MediaCodec codec, final WritableByteChannel out) throws IOException {
         boolean eof = false;
         MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
 
-        while (!consumeRotationChange() && !eof) {
-            int outputBufferId = codec.dequeueOutputBuffer(bufferInfo, -1);
+        final long timeoutUs = 1*1000*1000; // 1 second
+
+        while (!consumeRotationChange() && !eof && !abort) {
+            int outputBufferId = codec.dequeueOutputBuffer(bufferInfo, timeoutUs);
             eof = (bufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0;
+            if (abort) break;
             try {
                 if (consumeRotationChange()) {
                     // must restart encoding with new size
@@ -99,10 +116,13 @@ public class ScreenEncoder implements Device.RotationListener {
                     ByteBuffer codecBuffer = codec.getOutputBuffer(outputBufferId);
 
                     if (sendFrameMeta) {
-                        writeFrameMeta(fd, bufferInfo, codecBuffer.remaining());
+                        writeFrameMeta(out, bufferInfo, codecBuffer.remaining());
                     }
-
-                    IO.writeFully(fd, codecBuffer);
+                    if (out.write(codecBuffer) <= 0) {
+                        Ln.w("Can't send frame");
+                        abort = true;
+                        break;
+                    }
                 }
             } finally {
                 if (outputBufferId >= 0) {
@@ -114,7 +134,7 @@ public class ScreenEncoder implements Device.RotationListener {
         return !eof;
     }
 
-    private void writeFrameMeta(FileDescriptor fd, MediaCodec.BufferInfo bufferInfo, int packetSize) throws IOException {
+    private void writeFrameMeta(WritableByteChannel out, MediaCodec.BufferInfo bufferInfo, int packetSize) throws IOException {
         headerBuffer.clear();
 
         long pts;
@@ -130,14 +150,14 @@ public class ScreenEncoder implements Device.RotationListener {
         headerBuffer.putLong(pts);
         headerBuffer.putInt(packetSize);
         headerBuffer.flip();
-        IO.writeFully(fd, headerBuffer);
+        out.write(headerBuffer);
     }
 
     private static MediaCodec createCodec() throws IOException {
         return MediaCodec.createEncoderByType("video/avc");
     }
 
-    private static MediaFormat createFormat(int bitRate, int frameRate, int iFrameInterval) throws IOException {
+    private static MediaFormat createFormat(int bitRate, int frameRate, int iFrameInterval, int repeatFrameDelay) throws IOException {
         MediaFormat format = new MediaFormat();
         format.setString(MediaFormat.KEY_MIME, "video/avc");
         format.setInteger(MediaFormat.KEY_BIT_RATE, bitRate);
@@ -145,7 +165,7 @@ public class ScreenEncoder implements Device.RotationListener {
         format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
         format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, iFrameInterval);
         // display the very first frame, and recover from bad quality when no new frames
-        format.setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, MICROSECONDS_IN_ONE_SECOND * REPEAT_FRAME_DELAY / frameRate); // µs
+        format.setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, MICROSECONDS_IN_ONE_SECOND * repeatFrameDelay / frameRate); // µs
         return format;
     }
 

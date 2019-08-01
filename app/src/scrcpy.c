@@ -41,13 +41,14 @@ static struct input_manager input_manager = {
     .controller = &controller,
     .video_buffer = &video_buffer,
     .screen = &screen,
+    .finger_timestamp = 0,
 };
 
 // init SDL and set appropriate hints
 static bool
 sdl_init_and_configure(bool display) {
     uint32_t flags = display ? SDL_INIT_VIDEO : SDL_INIT_EVENTS;
-    if (SDL_Init(flags)) {
+    if (SDL_Init(flags|SDL_INIT_TIMER)) {
         LOGC("Could not initialize SDL: %s", SDL_GetError());
         return false;
     }
@@ -123,7 +124,7 @@ enum event_result {
 };
 
 static enum event_result
-handle_event(SDL_Event *event, bool control) {
+handle_event(SDL_Event *event, bool control, bool useIME, bool tablet) {
     switch (event->type) {
         case EVENT_STREAM_STOPPED:
             LOGD("Video stream stopped");
@@ -131,6 +132,9 @@ handle_event(SDL_Event *event, bool control) {
         case SDL_QUIT:
             LOGD("User requested to quit");
             return EVENT_RESULT_STOPPED_BY_USER;
+        case EVENT_TIMER:
+            input_manager_send_ping(&input_manager);
+            break;
         case EVENT_NEW_FRAME:
             if (!screen.has_frame) {
                 screen.has_frame = true;
@@ -140,12 +144,36 @@ handle_event(SDL_Event *event, bool control) {
             if (!screen_update_frame(&screen, &video_buffer)) {
                 return EVENT_RESULT_CONTINUE;
             }
+            if (screen.fullscreen && tablet) {
+                // Control the device orientation in full screen only
+                if (screen.frame_changed) {
+                    // Device orientation has changed. It can be right after
+                    // screen unlock, and may require to adjust the orientation
+                    input_manager_send_rotation(&input_manager);
+                }
+                else {
+                    // Check if device screen orientation is correct, but not so often
+                    static uint32_t last_check = 0;
+                    uint32_t now = SDL_GetTicks();
+                    if (now < last_check || now-last_check >= 1000) {
+                        last_check = now;
+                        int w = 0, h = 0;
+                        SDL_GetWindowSize(screen.window, &w, &h);
+                        if ((w<h) != (screen.frame_size.width<screen.frame_size.height))
+                            input_manager_send_rotation(&input_manager);
+                        }
+                }
+            }
             break;
         case SDL_WINDOWEVENT:
             switch (event->window.event) {
                 case SDL_WINDOWEVENT_EXPOSED:
                 case SDL_WINDOWEVENT_SIZE_CHANGED:
                     screen_render(&screen);
+                    // Screen orientation or window size has changed.
+                    // Command the device to rotate, as appropriate.
+                    if (screen.fullscreen && tablet)
+                        input_manager_send_rotation(&input_manager);
                     break;
             }
             break;
@@ -153,14 +181,16 @@ handle_event(SDL_Event *event, bool control) {
             if (!control) {
                 break;
             }
-            input_manager_process_text_input(&input_manager, &event->text);
+            input_manager_process_text_input(&input_manager, &event->text, useIME);
             break;
         case SDL_KEYDOWN:
         case SDL_KEYUP:
             // some key events do not interact with the device, so process the
             // event even if control is disabled
-            input_manager_process_key(&input_manager, &event->key, control);
-            break;
+            if (input_manager_process_key(&input_manager, &event->key, control, useIME))
+                break;
+            else
+                return EVENT_RESULT_STOPPED_BY_USER;
         case SDL_MOUSEMOTION:
             if (!control) {
                 break;
@@ -193,22 +223,44 @@ handle_event(SDL_Event *event, bool control) {
             file_handler_request(&file_handler, action, event->drop.file);
             break;
         }
+        case SDL_FINGERDOWN:
+        case SDL_FINGERUP:
+        case SDL_FINGERMOTION:
+            if (!control) {
+                break;
+            }
+            input_manager_process_finger(&input_manager, &event->tfinger);
+            break;
     }
     return EVENT_RESULT_CONTINUE;
 }
 
+static Uint32
+timer_callbackfunc(Uint32 interval, void *param)
+{
+    static SDL_Event event = {
+        .type = EVENT_TIMER,
+    };
+    SDL_PushEvent(&event);
+
+    return(interval);
+}
+
 static bool
-event_loop(bool display, bool control) {
+event_loop(bool display, bool control, bool useIME, bool tablet) {
 #ifdef CONTINUOUS_RESIZING_WORKAROUND
     if (display) {
         SDL_AddEventWatch(event_watcher, NULL);
     }
 #endif
+    SDL_TimerID my_timer_id = SDL_AddTimer(1500, timer_callbackfunc, NULL);
+
     SDL_Event event;
     while (SDL_WaitEvent(&event)) {
-        enum event_result result = handle_event(&event, control);
+        enum event_result result = handle_event(&event, control, useIME, tablet);
         switch (result) {
             case EVENT_RESULT_STOPPED_BY_USER:
+                input_manager_send_quit(&input_manager);
                 return true;
             case EVENT_RESULT_STOPPED_BY_EOS:
                 return false;
@@ -216,6 +268,7 @@ event_loop(bool display, bool control) {
                 break;
         }
     }
+    SDL_RemoveTimer(my_timer_id);
     return false;
 }
 
@@ -273,14 +326,18 @@ bool
 scrcpy(const struct scrcpy_options *options) {
     bool record = !!options->record_filename;
     struct server_params params = {
-        .crop = options->crop,
-        .local_port = options->port,
-        .max_size = options->max_size,
-        .bit_rate = options->bit_rate,
+        .crop            = options->crop,
+        .local_port      = options->port,
+        .max_size        = options->max_size,
+        .bit_rate        = options->bit_rate,
         .send_frame_meta = record,
-        .control = options->control,
+        .control         = options->control,
+        .density         = options->density,
+        .size            = options->size,
+        .tablet          = options->tablet,
     };
     if (!server_start(&server, options->serial, &params)) {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "scrcpy", "Server failed to start!", NULL);
         return false;
     }
 
@@ -405,7 +462,7 @@ scrcpy(const struct scrcpy_options *options) {
         show_touches_waited = true;
     }
 
-    ret = event_loop(options->display, options->control);
+    ret = event_loop(options->display, options->control, options->useIME, options->tablet);
     LOGD("quit...");
 
     screen_destroy(&screen);

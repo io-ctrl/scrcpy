@@ -16,15 +16,28 @@ public final class ControlMessage {
     public static final int TYPE_SET_CLIPBOARD = 8;
     public static final int TYPE_SET_SCREEN_POWER_MODE = 9;
 
+    public static final int TYPE_INJECT_TOUCH_EVENT = 100;
+    public static final int TYPE_COMMAND            = 101;
+
+    public static final int COMMAND_BACK_OR_SCREEN_ON           = 0;
+    public static final int COMMAND_EXPAND_NOTIFICATION_PANEL   = 1;
+    public static final int COMMAND_COLLAPSE_NOTIFICATION_PANEL = 2;
+    public static final int COMMAND_QUIT                        = 3;
+    public static final int COMMAND_TO_PORTRAIT                 = 4;
+    public static final int COMMAND_TO_LANDSCAPE                = 5;
+    public static final int COMMAND_PING                        = 6;
+
     private int type;
     private String text;
     private int metaState; // KeyEvent.META_*
-    private int action; // KeyEvent.ACTION_* or MotionEvent.ACTION_* or POWER_MODE_*
-    private int keycode; // KeyEvent.KEYCODE_*
-    private int buttons; // MotionEvent.BUTTON_*
+    private int action;    // KeyEvent.ACTION_* or MotionEvent.ACTION_* or COMMAND_* or POWER_MODE_*
+    private int keycode;   // KeyEvent.KEYCODE_*
+    private int buttons;   // MotionEvent.BUTTON_*
     private Position position;
     private int hScroll;
     private int vScroll;
+    public static final int MAX_FINGERS = 10;
+    private int fingerId;
 
     private ControlMessage() {
     }
@@ -51,6 +64,17 @@ public final class ControlMessage {
         event.action = action;
         event.buttons = buttons;
         event.position = position;
+        return event;
+    }
+
+    public static ControlMessage createInjectTouchEvent(int action, int fingerId, Position position) {
+        if (fingerId < 0 || fingerId >= MAX_FINGERS)
+            fingerId = 0;
+        ControlMessage event = new ControlMessage();
+        event.type     = TYPE_INJECT_TOUCH_EVENT;
+        event.action   = action;
+        event.position = position;
+        event.fingerId = fingerId;
         return event;
     }
 
@@ -83,6 +107,13 @@ public final class ControlMessage {
     public static ControlMessage createEmpty(int type) {
         ControlMessage event = new ControlMessage();
         event.type = type;
+        return event;
+    }
+
+    public static ControlMessage createCommandEvent(int action) {
+        ControlMessage event = new ControlMessage();
+        event.type = TYPE_COMMAND;
+        event.action = action;
         return event;
     }
 
@@ -121,4 +152,6 @@ public final class ControlMessage {
     public int getVScroll() {
         return vScroll;
     }
+
+    public int getFingerId() { return fingerId; }
 }

@@ -219,6 +219,7 @@ static bool
 prepare_for_frame(struct screen *screen, struct size new_frame_size) {
     if (screen->frame_size.width != new_frame_size.width
             || screen->frame_size.height != new_frame_size.height) {
+        screen->frame_changed = true;
         if (SDL_RenderSetLogicalSize(screen->renderer, new_frame_size.width,
                                      new_frame_size.height)) {
             LOGE("Could not set renderer logical size: %s", SDL_GetError());
@@ -266,6 +267,7 @@ screen_update_frame(struct screen *screen, struct video_buffer *vb) {
     mutex_lock(vb->mutex);
     const AVFrame *frame = video_buffer_consume_rendered_frame(vb);
     struct size new_frame_size = {frame->width, frame->height};
+    screen->frame_changed = false;
     if (!prepare_for_frame(screen, new_frame_size)) {
         mutex_unlock(vb->mutex);
         return false;

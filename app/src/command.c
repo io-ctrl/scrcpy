@@ -136,6 +136,31 @@ adb_reverse_remove(const char *serial, const char *device_socket_name) {
     return adb_execute(serial, adb_cmd, ARRAY_LEN(adb_cmd));
 }
 
+static bool
+serial_is_ip(const char *serial) {
+    if (serial == NULL || serial[0] == 0 || strchr(serial, ':') == NULL)
+        return false;
+    return true;
+}
+
+bool
+adb_connect(const char *serial) {
+    if (!serial_is_ip(serial)) return false;
+    const char *const adb_cmd[] = {"connect", serial};
+    process_t proc = adb_execute(NULL, adb_cmd, ARRAY_LEN(adb_cmd));
+    process_check_success(proc, "adb connect");
+    return true;
+}
+
+bool
+adb_disconnect(const char *serial) {
+    if (!serial_is_ip(serial)) return false;
+    const char *const adb_cmd[] = {"disconnect", serial};
+    process_t proc = adb_execute(NULL, adb_cmd, ARRAY_LEN(adb_cmd));
+    process_check_success(proc, "adb disconnect");
+    return true;
+}
+
 process_t
 adb_push(const char *serial, const char *local, const char *remote) {
 #ifdef __WINDOWS__

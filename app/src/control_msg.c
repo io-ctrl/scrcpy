@@ -42,6 +42,11 @@ control_msg_serialize(const struct control_msg *msg, unsigned char *buf) {
             buffer_write32be(&buf[2], msg->inject_mouse_event.buttons);
             write_position(&buf[6], &msg->inject_mouse_event.position);
             return 18;
+        case CONTROL_MSG_TYPE_INJECT_TOUCH_EVENT:
+            buf[1] = msg->inject_touch_event.action;
+            buffer_write32be(&buf[2], msg->inject_touch_event.touch_id);
+            write_position(&buf[6], &msg->inject_touch_event.position);
+            return 18;
         case CONTROL_MSG_TYPE_INJECT_SCROLL_EVENT:
             write_position(&buf[1], &msg->inject_scroll_event.position);
             buffer_write32be(&buf[13],
@@ -49,6 +54,9 @@ control_msg_serialize(const struct control_msg *msg, unsigned char *buf) {
             buffer_write32be(&buf[17],
                              (uint32_t) msg->inject_scroll_event.vscroll);
             return 21;
+        case CONTROL_MSG_TYPE_COMMAND:
+            buf[1] = msg->command_event.action;
+            return 2;
         case CONTROL_MSG_TYPE_SET_CLIPBOARD: {
             size_t len = write_string(msg->inject_text.text,
                                       CONTROL_MSG_CLIPBOARD_TEXT_MAX_LENGTH,
