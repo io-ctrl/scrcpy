@@ -79,12 +79,6 @@ public class ControlMessageReader {
             case ControlMessage.TYPE_SET_SCREEN_POWER_MODE:
                 msg = parseSetScreenPowerMode();
                 break;
-            case ControlMessage.TYPE_BACK_OR_SCREEN_ON:
-            case ControlMessage.TYPE_EXPAND_NOTIFICATION_PANEL:
-            case ControlMessage.TYPE_COLLAPSE_NOTIFICATION_PANEL:
-            case ControlMessage.TYPE_GET_CLIPBOARD:
-                msg = ControlMessage.createEmpty(type);
-                break;
             default:
                 Ln.w("Unknown event type: " + type);
                 msg = null;

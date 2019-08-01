@@ -66,12 +66,6 @@ control_msg_serialize(const struct control_msg *msg, unsigned char *buf) {
         case CONTROL_MSG_TYPE_SET_SCREEN_POWER_MODE:
             buf[1] = msg->set_screen_power_mode.mode;
             return 2;
-        case CONTROL_MSG_TYPE_BACK_OR_SCREEN_ON:
-        case CONTROL_MSG_TYPE_EXPAND_NOTIFICATION_PANEL:
-        case CONTROL_MSG_TYPE_COLLAPSE_NOTIFICATION_PANEL:
-        case CONTROL_MSG_TYPE_GET_CLIPBOARD:
-            // no additional data
-            return 1;
         default:
             LOGW("Unknown message type: %u", (unsigned) msg->type);
             return 0;

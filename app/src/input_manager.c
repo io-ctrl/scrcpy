@@ -95,91 +95,67 @@ action_menu(struct controller *controller, int actions) {
     send_keycode(controller, AKEYCODE_MENU, actions, "MENU");
 }
 
-// turn the screen on if it was off, press BACK otherwise
-static void
-press_back_or_turn_screen_on(struct controller *controller) {
+static inline bool
+send_command(struct controller *controller, enum control_command action) {
     struct control_msg msg;
     msg.type = CONTROL_MSG_TYPE_COMMAND;
-    msg.command_event.action =
-            CONTROL_COMMAND_BACK_OR_SCREEN_ON;
+    msg.command_event.action = action;
 
-    if (!controller_push_msg(controller, &msg)) {
+    return controller_push_msg(controller, &msg);
+}
+
+// turn the screen on if it was off, press BACK otherwise
+static inline void
+press_back_or_turn_screen_on(struct controller *controller) {
+    if (!send_command(controller, CONTROL_COMMAND_BACK_OR_SCREEN_ON)) {
         LOGW("Could not request 'turn screen on'");
     }
 }
 
-static void
+static inline void
 expand_notification_panel(struct controller *controller) {
-    struct control_msg msg;
-    msg.type = CONTROL_MSG_TYPE_COMMAND;
-    msg.command_event.action =
-            CONTROL_COMMAND_EXPAND_NOTIFICATION_PANEL;
-
-    if (!controller_push_msg(controller, &msg)) {
+    if (!send_command(controller, CONTROL_COMMAND_EXPAND_NOTIFICATION_PANEL)) {
         LOGW("Could not request 'expand notification panel'");
     }
 }
 
-static void
+static inline void
 collapse_notification_panel(struct controller *controller) {
-    struct control_msg msg;
-    msg.type = CONTROL_MSG_TYPE_COMMAND;
-    msg.command_event.action =
-            CONTROL_COMMAND_COLLAPSE_NOTIFICATION_PANEL;
-
-    if (!controller_push_msg(controller, &msg)) {
+    if (!send_command(controller, CONTROL_COMMAND_COLLAPSE_NOTIFICATION_PANEL)) {
         LOGW("Could not request 'collapse notification panel'");
     }
 }
 
 void
 input_manager_send_quit(struct input_manager *input_manager) {
-    struct control_msg msg;
-    msg.type = CONTROL_MSG_TYPE_COMMAND;
-    msg.command_event.action =
-            CONTROL_COMMAND_QUIT;
-
-    if (!controller_push_msg(input_manager->controller, &msg)) {
+    if (!send_command(input_manager->controller, CONTROL_COMMAND_QUIT)) {
         LOGW("Could not send QUIT");
     }
 }
 
 void
 input_manager_send_ping(struct input_manager *input_manager) {
-    struct control_msg msg;
-    msg.type = CONTROL_MSG_TYPE_COMMAND;
-    msg.command_event.action =
-            CONTROL_COMMAND_PING;
-
-    if (!controller_push_msg(input_manager->controller, &msg)) {
+    if (!send_command(input_manager->controller, CONTROL_COMMAND_PING)) {
         LOGW("Could not send PING");
     }
 }
 
 void
 input_manager_send_rotation(struct input_manager *input_manager) {
-    if (!input_manager->screen->has_frame) return;
+    if (!input_manager->screen->has_frame)  return;
     if (!input_manager->screen->fullscreen) return;
 
     int w = 0, h = 0;
     SDL_GetWindowSize(input_manager->screen->window, &w, &h);
 
-    struct control_msg msg;
-    msg.type = CONTROL_MSG_TYPE_COMMAND;
-    msg.command_event.action =
-            w < h ? CONTROL_COMMAND_PORTRAIT : CONTROL_COMMAND_LANDSCAPE;
-
-    if (!controller_push_msg(input_manager->controller, &msg)) {
+    if (!send_command(input_manager->controller, w < h ? CONTROL_COMMAND_PORTRAIT : CONTROL_COMMAND_LANDSCAPE)) {
         LOGW("Could not send ROTATION");
     }
 }
 
-static void
+static inline void
 request_device_clipboard(struct controller *controller) {
-    struct control_msg msg;
-    msg.type = CONTROL_MSG_TYPE_GET_CLIPBOARD;
-
-    if (!controller_push_msg(controller, &msg)) {
+    if (!send_command(controller, CONTROL_COMMAND_GET_CLIPBOARD)) {
         LOGW("Could not request device clipboard");
     }
 }

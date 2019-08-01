@@ -5,19 +5,14 @@ package com.genymobile.scrcpy;
  */
 public final class ControlMessage {
 
-    public static final int TYPE_INJECT_KEYCODE = 0;
-    public static final int TYPE_INJECT_TEXT = 1;
-    public static final int TYPE_INJECT_MOUSE_EVENT = 2;
-    public static final int TYPE_INJECT_SCROLL_EVENT = 3;
-    public static final int TYPE_BACK_OR_SCREEN_ON = 4;
-    public static final int TYPE_EXPAND_NOTIFICATION_PANEL = 5;
-    public static final int TYPE_COLLAPSE_NOTIFICATION_PANEL = 6;
-    public static final int TYPE_GET_CLIPBOARD = 7;
-    public static final int TYPE_SET_CLIPBOARD = 8;
-    public static final int TYPE_SET_SCREEN_POWER_MODE = 9;
-
-    public static final int TYPE_INJECT_TOUCH_EVENT = 100;
-    public static final int TYPE_COMMAND            = 101;
+    public static final int TYPE_INJECT_KEYCODE        = 0;
+    public static final int TYPE_INJECT_TEXT           = 1;
+    public static final int TYPE_INJECT_MOUSE_EVENT    = 2;
+    public static final int TYPE_INJECT_TOUCH_EVENT    = 3;
+    public static final int TYPE_INJECT_SCROLL_EVENT   = 4;
+    public static final int TYPE_COMMAND               = 5;
+    public static final int TYPE_SET_CLIPBOARD         = 6;
+    public static final int TYPE_SET_SCREEN_POWER_MODE = 7;
 
     public static final int COMMAND_BACK_OR_SCREEN_ON           = 0;
     public static final int COMMAND_EXPAND_NOTIFICATION_PANEL   = 1;
@@ -26,6 +21,7 @@ public final class ControlMessage {
     public static final int COMMAND_TO_PORTRAIT                 = 4;
     public static final int COMMAND_TO_LANDSCAPE                = 5;
     public static final int COMMAND_PING                        = 6;
+    public static final int COMMAND_GET_CLIPBOARD               = 7;
 
     private int type;
     private String text;

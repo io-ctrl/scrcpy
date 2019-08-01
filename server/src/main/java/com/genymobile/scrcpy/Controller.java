@@ -145,19 +145,6 @@ public class Controller {
             case ControlMessage.TYPE_COMMAND:
                 executeCommand(msg.getAction());
                 break;
-            case ControlMessage.TYPE_BACK_OR_SCREEN_ON:
-                pressBackOrTurnScreenOn();
-                break;
-            case ControlMessage.TYPE_EXPAND_NOTIFICATION_PANEL:
-                device.expandNotificationPanel();
-                break;
-            case ControlMessage.TYPE_COLLAPSE_NOTIFICATION_PANEL:
-                device.collapsePanels();
-                break;
-            case ControlMessage.TYPE_GET_CLIPBOARD:
-                String clipboardText = device.getClipboardText();
-                sender.pushClipboardText(clipboardText);
-                break;
             case ControlMessage.TYPE_SET_CLIPBOARD:
                 device.setClipboardText(msg.getText());
                 break;
@@ -318,6 +305,10 @@ public class Controller {
                 return true;
             case ControlMessage.COMMAND_PING:
                 return true;
+            case ControlMessage.COMMAND_GET_CLIPBOARD:
+                String clipboardText = device.getClipboardText();
+                sender.pushClipboardText(clipboardText);
+                break;
             default:
                 Ln.w("Unsupported command: " + action);
         }

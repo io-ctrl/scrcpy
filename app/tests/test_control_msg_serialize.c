@@ -133,62 +133,18 @@ static void test_serialize_inject_scroll_event(void) {
     assert(!memcmp(buf, expected, sizeof(expected)));
 }
 
-static void test_serialize_back_or_screen_on(void) {
-    struct control_msg msg = {
-        .type = CONTROL_MSG_TYPE_BACK_OR_SCREEN_ON,
-    };
-
-    unsigned char buf[CONTROL_MSG_SERIALIZED_MAX_SIZE];
-    int size = control_msg_serialize(&msg, buf);
-    assert(size == 1);
-
-    const unsigned char expected[] = {
-        CONTROL_MSG_TYPE_BACK_OR_SCREEN_ON,
-    };
-    assert(!memcmp(buf, expected, sizeof(expected)));
-}
-
-static void test_serialize_expand_notification_panel(void) {
-    struct control_msg msg = {
-        .type = CONTROL_MSG_TYPE_EXPAND_NOTIFICATION_PANEL,
-    };
-
-    unsigned char buf[CONTROL_MSG_SERIALIZED_MAX_SIZE];
-    int size = control_msg_serialize(&msg, buf);
-    assert(size == 1);
-
-    const unsigned char expected[] = {
-        CONTROL_MSG_TYPE_EXPAND_NOTIFICATION_PANEL,
-    };
-    assert(!memcmp(buf, expected, sizeof(expected)));
-}
-
-static void test_serialize_collapse_notification_panel(void) {
-    struct control_msg msg = {
-        .type = CONTROL_MSG_TYPE_COLLAPSE_NOTIFICATION_PANEL,
-    };
-
-    unsigned char buf[CONTROL_MSG_SERIALIZED_MAX_SIZE];
-    int size = control_msg_serialize(&msg, buf);
-    assert(size == 1);
-
-    const unsigned char expected[] = {
-        CONTROL_MSG_TYPE_COLLAPSE_NOTIFICATION_PANEL,
-    };
-    assert(!memcmp(buf, expected, sizeof(expected)));
-}
-
 static void test_serialize_get_clipboard(void) {
     struct control_msg msg = {
-        .type = CONTROL_MSG_TYPE_GET_CLIPBOARD,
+        .type   = CONTROL_MSG_TYPE_COMMAND,
+        .command_event.action = CONTROL_COMMAND_GET_CLIPBOARD,
     };
 
     unsigned char buf[CONTROL_MSG_SERIALIZED_MAX_SIZE];
     int size = control_msg_serialize(&msg, buf);
-    assert(size == 1);
+    assert(size == 2);
 
     const unsigned char expected[] = {
-        CONTROL_MSG_TYPE_GET_CLIPBOARD,
+        CONTROL_MSG_TYPE_COMMAND, CONTROL_COMMAND_GET_CLIPBOARD
     };
     assert(!memcmp(buf, expected, sizeof(expected)));
 }
@@ -238,9 +194,6 @@ int main(void) {
     test_serialize_inject_text_long();
     test_serialize_inject_mouse_event();
     test_serialize_inject_scroll_event();
-    test_serialize_back_or_screen_on();
-    test_serialize_expand_notification_panel();
-    test_serialize_collapse_notification_panel();
     test_serialize_get_clipboard();
     test_serialize_set_clipboard();
     test_serialize_set_screen_power_mode();
