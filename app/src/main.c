@@ -106,6 +106,9 @@ static void usage(const char *arg0) {
         "    -S, --turn-screen-off\n"
         "        Turn the device screen off immediately.\n"
         "\n"
+        "    --screen-size width:height\n"
+        "        Forced device screen size.\n"
+        "\n"
         "    -t, --show-touches\n"
         "        Enable \"show touches\" on start, disable on quit.\n"
         "        It only shows physical touches (not clicks from scrcpy).\n"
@@ -311,6 +314,7 @@ guess_record_format(const char *filename) {
 }
 
 #define OPT_RENDER_EXPIRED_FRAMES 1000
+#define OPT_DEVICE_SCREEN_SIZE    1001
 
 static bool
 parse_args(struct args *args, int argc, char *argv[]) {
@@ -332,8 +336,10 @@ parse_args(struct args *args, int argc, char *argv[]) {
                                                  OPT_RENDER_EXPIRED_FRAMES},
         {"serial",                required_argument, NULL, 's'},
         {"show-touches",          no_argument,       NULL, 't'},
-        {"turn-screen-off",       no_argument,       NULL, 'S'},
+        {"screen-size",           required_argument, NULL,
+                                                 OPT_DEVICE_SCREEN_SIZE},
         {"tablet-mode",           no_argument,       NULL, 'B'},
+        {"turn-screen-off",       no_argument,       NULL, 'S'},
         {"version",               no_argument,       NULL, 'v'},
         {NULL,                    0,                 NULL, 0  },
     };
@@ -405,6 +411,9 @@ parse_args(struct args *args, int argc, char *argv[]) {
                 break;
             case OPT_RENDER_EXPIRED_FRAMES:
                 args->render_expired_frames = true;
+                break;
+            case OPT_DEVICE_SCREEN_SIZE:
+                args->size = optarg;
                 break;
             default:
                 // getopt prints the error message on stderr
