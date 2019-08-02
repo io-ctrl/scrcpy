@@ -99,8 +99,10 @@ public final class DesktopConnection implements Closeable {
             } else {
                 SocketChannel videoSocket = listenAndAccept(port);
                 videoSocket.socket().setSendBufferSize(2*1024*1024);
+                videoSocket.socket().setTrafficClass(0B00111100);
                 videoSocket.socket().getOutputStream().write(0);
                 SocketChannel controlSocket = listenAndAccept(port);
+                controlSocket.socket().setTrafficClass(0B00111100);
                 connection = new DesktopConnection(videoSocket, controlSocket);
                 Ln.i("Direct connection accepted");
             }

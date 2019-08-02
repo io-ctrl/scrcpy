@@ -37,6 +37,12 @@ net_connect(uint32_t addr, uint16_t port) {
         net_close(sock);
         return INVALID_SOCKET;
     }
+/*
+    https://en.wikipedia.org/wiki/Type_of_service
+*/
+    int optval = 0B00111100;
+    setsockopt(sock, IPPROTO_IP, IP_TOS, (const char*)&optval, sizeof(optval));
+
     int one = 1;
     setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (const char*)&one, sizeof(one));
 
