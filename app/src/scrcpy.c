@@ -335,6 +335,7 @@ scrcpy(const struct scrcpy_options *options) {
         .density         = options->density,
         .size            = options->size,
         .tablet          = options->tablet,
+        .useIME          = options->useIME,
     };
     if (!server_start(&server, options->serial, &params)) {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "scrcpy", "Server failed to start!", NULL);

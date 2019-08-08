@@ -128,6 +128,9 @@ execute_server(struct server *server, const struct server_params *params) {
     sprintf(tablet_string, "tablet=%s", params->tablet ? "true" : "false");
     char local_port_string[5+5+1];
     sprintf(local_port_string, "port=%u", params->local_port);
+    char ime_string[7+5+1];
+    sprintf(ime_string, "useIME=%s", params->useIME ? "true" : "false");
+
     const char *const cmd[] = {
         "shell",
         "CLASSPATH=/data/local/tmp/" SERVER_FILENAME,
@@ -144,6 +147,7 @@ execute_server(struct server *server, const struct server_params *params) {
         size_string,
         tablet_string,
         local_port_string,
+        ime_string,
 #ifdef WINDOWS_NOCONSOLE
         "fork",
 #else

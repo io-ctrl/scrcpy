@@ -78,13 +78,15 @@ public final class DeviceControl {
 
         tabletMode = options.getTabletMode();
 
-        // Init AbdIME before rotateByBroadcast!
-        try {
-            disableAdbIme = !imm.setInputMethodEnabled(AdbIME, true);
-            enabledAdbIme = imm.setInputMethod(AdbIME);
-            Ln.i("AdbIME enabled: "+enabledAdbIme+" lastMethod: "+lastIMEMethod);
-        } catch (Exception e) {
-            Ln.w("IME: "+e.toString());
+        if (options.getUseIME()) {
+            // Init AdbIME before rotateByBroadcast!
+            try {
+                disableAdbIme = !imm.setInputMethodEnabled(AdbIME, true);
+                enabledAdbIme = imm.setInputMethod(AdbIME);
+                Ln.i("AdbIME enabled: "+enabledAdbIme+" lastMethod: "+lastIMEMethod);
+            } catch (Exception e) {
+                Ln.w("IME: "+e.toString());
+            }
         }
 
         wm.getInitialDisplaySize(initialSize);
@@ -102,7 +104,7 @@ public final class DeviceControl {
 
         densityChanged    = setDensity(options.getDensity());
         sizeChanged       = setSize(options.getSize());
-        rotateByBroadcast = startRotator();
+        rotateByBroadcast = tabletMode && startRotator();
     }
 
     private boolean sendRotate(int orientation) {
@@ -193,7 +195,6 @@ public final class DeviceControl {
 
     static private final String SERVICE = "com.android.adbkeyboard/.Rotate";
     private boolean startRotator() {
-        if (!enabledAdbIme) return false;
         return activityManager.startService(SERVICE);
     }
 

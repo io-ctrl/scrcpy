@@ -44,6 +44,7 @@ struct server_params {
     uint16_t density;
     const char* size;
     bool tablet;
+    bool useIME;
 };
 
 // init default values

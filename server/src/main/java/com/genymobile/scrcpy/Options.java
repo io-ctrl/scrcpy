@@ -14,6 +14,7 @@ public class Options {
     private final Point size = new Point(0,0);
     private boolean tabletMode = false;
     private int local_port = 0;
+    private boolean useIME = false;
 
     public int getMaxSize() {
         return maxSize;
@@ -71,6 +72,8 @@ public class Options {
 
     public int getPort() { return local_port; }
 
+    public boolean getUseIME() { return useIME; }
+
     public void setOption(final String option) {
         String[] pair = option.split("=");
         if (pair.length != 2) {
@@ -92,6 +95,8 @@ public class Options {
             tabletMode = Boolean.parseBoolean(pair[1]);
         } else if("port".equals(pair[0])) {
             local_port = Integer.parseInt(pair[1]);
+        } else if("useIME".equals(pair[0])) {
+            useIME = Boolean.parseBoolean(pair[1]);
         }
     }
 }
