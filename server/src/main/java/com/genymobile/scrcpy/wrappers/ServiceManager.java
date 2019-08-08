@@ -9,6 +9,7 @@ import java.lang.reflect.Method;
 @SuppressLint("PrivateApi")
 public final class ServiceManager {
     private final Method getServiceMethod;
+    private final Method checkServiceMethod;
 
     private WindowManager      windowManager;
     private DisplayManager     displayManager;
@@ -24,7 +25,8 @@ public final class ServiceManager {
 
     public ServiceManager() {
         try {
-            getServiceMethod = Class.forName("android.os.ServiceManager").getDeclaredMethod("getService", String.class);
+            getServiceMethod   = Class.forName("android.os.ServiceManager").getDeclaredMethod("getService",   String.class);
+            checkServiceMethod = Class.forName("android.os.ServiceManager").getDeclaredMethod("checkService", String.class);
         } catch (Exception e) {
             throw new AssertionError(e);
         }
@@ -34,6 +36,16 @@ public final class ServiceManager {
         try {
             IBinder binder = (IBinder) getServiceMethod.invoke(null, service);
             Method asInterfaceMethod = Class.forName(type + "$Stub").getMethod("asInterface", IBinder.class);
+            return (IInterface) asInterfaceMethod.invoke(null, binder);
+        } catch (Exception e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private IInterface checkService(String service, String type) {
+        try {
+            IBinder binder = (IBinder) checkServiceMethod.invoke(null, service);
+            Method asInterfaceMethod = Class.forName(type).getMethod("asInterface", IBinder.class);
             return (IInterface) asInterfaceMethod.invoke(null, binder);
         } catch (Exception e) {
             throw new AssertionError(e);
@@ -84,7 +96,10 @@ public final class ServiceManager {
 
     public ActivityManager getActivityManager() {
         if (activityManager == null) {
-            activityManager = new ActivityManager(getService("activity", "android.app.IActivityManager"));
+            // This does not work for Android 6
+            // activityManager = new ActivityManager(getService("activity", "android.app.IActivityManager"));
+            // This works for both Android 6 and 8
+            activityManager = new ActivityManager(checkService("activity", "android.app.ActivityManagerNative"));
         }
         return activityManager;
     }
