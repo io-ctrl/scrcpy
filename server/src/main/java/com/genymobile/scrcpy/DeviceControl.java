@@ -1,9 +1,16 @@
 package com.genymobile.scrcpy;
 
+import com.genymobile.scrcpy.wrappers.InputManager;
+
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.graphics.Point;
+import android.os.SystemClock;
 import android.os.UserHandle;
+import android.view.InputDevice;
+import android.view.InputEvent;
+import android.view.KeyEvent;
+import android.view.KeyCharacterMap;
 import android.view.Surface;
 
 import com.genymobile.scrcpy.wrappers.ActivityManager;
@@ -40,7 +47,7 @@ public final class DeviceControl {
 
     private boolean rotateByBroadcast = true;
     static final String BROADCAST_ACTION = "name.lurker.RotateScreen";
-    private final ActivityManager activityManager = (new ServiceManager()).getActivityManager();
+    private final ActivityManager activityManager = serviceManager.getActivityManager();
 
     public static final String AdbIME = "com.android.adbkeyboard/.AdbIME";
     private boolean disableAdbIme = false;
@@ -57,6 +64,18 @@ public final class DeviceControl {
     DeviceControl(final Options options) {
         Ln.i("DeviceControl started");
         Instance = this;
+
+        if (turnScreenOn()) {
+            // dirty hack
+            // After POWER is injected, the device is powered on asynchronously.
+            // To turn the device screen off while mirroring, the client will send a message that
+            // would be handled before the device is actually powered on, so its effect would
+            // be "canceled" once the device is turned back on.
+            // Adding this delay prevents to handle the message before the device is actually
+            // powered on.
+            SystemClock.sleep(500);
+        }
+
         tabletMode = options.getTabletMode();
 
         // Init AbdIME before rotateByBroadcast!
@@ -199,5 +218,35 @@ public final class DeviceControl {
             Ln.e("DeviceControl.getCurrentIMEMethod", e);
         }
         return result;
+    }
+
+    // Below methods were copy-pasted from Controller.
+    // TODO: Remove redundant methods from Controller.
+    public boolean isScreenOn() {
+        return serviceManager.getPowerManager().isScreenOn();
+    }
+
+    public boolean injectInputEvent(InputEvent inputEvent, int mode) {
+        return serviceManager.getInputManager().injectInputEvent(inputEvent, mode);
+    }
+
+    private boolean injectEvent(InputEvent event) {
+        return injectInputEvent(event, InputManager.INJECT_INPUT_EVENT_MODE_ASYNC);
+    }
+
+    private boolean injectKeyEvent(int action, int keyCode, int repeat, int metaState) {
+        long now = SystemClock.uptimeMillis();
+        KeyEvent event = new KeyEvent(now, now, action, keyCode, repeat, metaState, KeyCharacterMap.VIRTUAL_KEYBOARD, 0, 0,
+                InputDevice.SOURCE_KEYBOARD);
+        return injectEvent(event);
+    }
+
+    private boolean injectKeycode(int keyCode) {
+        return injectKeyEvent(KeyEvent.ACTION_DOWN, keyCode, 0, 0)
+                && injectKeyEvent(KeyEvent.ACTION_UP, keyCode, 0, 0);
+    }
+
+    private boolean turnScreenOn() {
+        return isScreenOn() ? false : injectKeycode(KeyEvent.KEYCODE_POWER);
     }
 }
