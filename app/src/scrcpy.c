@@ -255,8 +255,8 @@ event_loop(bool display, bool control, bool useIME, bool tablet) {
     }
 #endif
     // Touch event reference point
-    input_manager.reference_timestamp = SDL_GetTicks();
     input_manager_send_ping(&input_manager);
+    input_manager.reference_timestamp = SDL_GetTicks();
 
     SDL_TimerID my_timer_id = SDL_AddTimer(1500, timer_callbackfunc, NULL);
 
