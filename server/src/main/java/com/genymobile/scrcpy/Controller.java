@@ -129,19 +129,19 @@ public class Controller {
         lastEventTime = SystemClock.uptimeMillis();
         switch (msg.getType()) {
             case ControlMessage.TYPE_INJECT_KEYCODE:
-                injectKeycode(msg.getAction(), msg.getKeycode(), msg.getMetaState());
+                injectKeycode(msg.getAction(), msg.getKeycode(), msg.getMetaState(), msg.getTime());
                 break;
             case ControlMessage.TYPE_INJECT_TEXT:
                 injectText(msg.getText());
                 break;
             case ControlMessage.TYPE_INJECT_MOUSE_EVENT:
-                injectMouse(msg.getAction(), msg.getButtons(), msg.getPosition());
+                injectMouse(msg.getAction(), msg.getButtons(), msg.getPosition(), msg.getTime());
                 break;
             case ControlMessage.TYPE_INJECT_TOUCH_EVENT:
-                injectTouch(msg.getAction(), msg.getPosition(), msg.getFingerId());
+                injectTouch(msg.getAction(), msg.getPosition(), msg.getFingerId(), msg.getTime());
                 break;
             case ControlMessage.TYPE_INJECT_SCROLL_EVENT:
-                injectScroll(msg.getPosition(), msg.getHScroll(), msg.getVScroll());
+                injectScroll(msg.getPosition(), msg.getHScroll(), msg.getVScroll(), msg.getTime());
                 break;
             case ControlMessage.TYPE_COMMAND:
                 executeCommand(msg.getAction());
@@ -157,8 +157,8 @@ public class Controller {
         }
     }
 
-    private boolean injectKeycode(int action, int keycode, int metaState) {
-        return injectKeyEvent(action, keycode, 0, metaState);
+    private boolean injectKeycode(int action, int keycode, int metaState, long now) {
+        return injectKeyEvent(action, keycode, 0, metaState, now);
     }
 
     private boolean injectChar(char c) {
@@ -189,8 +189,7 @@ public class Controller {
         return successCount;
     }
 
-    private boolean injectMouse(int action, int buttons, Position position) {
-        long now = SystemClock.uptimeMillis();
+    private boolean injectMouse(int action, int buttons, Position position, long now) {
         if (action == MotionEvent.ACTION_DOWN) {
             lastMouseDown = now;
         }
@@ -205,8 +204,7 @@ public class Controller {
         return injectEvent(event);
     }
 
-    private boolean injectTouch(int action, Position position, int fingerId) {
-        long now = SystemClock.uptimeMillis();
+    private boolean injectTouch(int action, Position position, int fingerId, long now) {
         if (action == MotionEvent.ACTION_DOWN) {
             lastTouchDown = now;
         }
@@ -241,8 +239,7 @@ public class Controller {
         return result;
     }
 
-    private boolean injectScroll(Position position, int hScroll, int vScroll) {
-        long now = SystemClock.uptimeMillis();
+    private boolean injectScroll(Position position, int hScroll, int vScroll, long now) {
         Point point = device.getPhysicalPoint(position);
         if (point == null) {
             // ignore event
@@ -255,16 +252,16 @@ public class Controller {
         return injectEvent(event);
     }
 
-    private boolean injectKeyEvent(int action, int keyCode, int repeat, int metaState) {
-        long now = SystemClock.uptimeMillis();
+    private boolean injectKeyEvent(int action, int keyCode, int repeat, int metaState, long now) {
         KeyEvent event = new KeyEvent(now, now, action, keyCode, repeat, metaState, KeyCharacterMap.VIRTUAL_KEYBOARD, 0, 0,
                 InputDevice.SOURCE_KEYBOARD);
         return injectEvent(event);
     }
 
     private boolean injectKeycode(int keyCode) {
-        return injectKeyEvent(KeyEvent.ACTION_DOWN, keyCode, 0, 0)
-                && injectKeyEvent(KeyEvent.ACTION_UP, keyCode, 0, 0);
+        final long now = SystemClock.uptimeMillis();
+        return injectKeyEvent(KeyEvent.ACTION_DOWN, keyCode, 0, 0, now)
+                && injectKeyEvent(KeyEvent.ACTION_UP, keyCode, 0, 0, now);
     }
 
     private boolean injectEvent(InputEvent event) {

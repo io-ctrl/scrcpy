@@ -14,6 +14,7 @@ struct input_manager {
     struct video_buffer *video_buffer;
     struct screen *screen;
     uint32_t finger_timestamp;
+    uint32_t reference_timestamp;
 };
 
 void

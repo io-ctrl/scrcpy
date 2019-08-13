@@ -10,7 +10,7 @@ public class ControlMessageReader {
 
     private static final int INJECT_KEYCODE_PAYLOAD_LENGTH        =  9;
     private static final int INJECT_MOUSE_EVENT_PAYLOAD_LENGTH    = 17;
-    private static final int INJECT_TOUCH_PAYLOAD_LENGTH          = 17;
+    private static final int INJECT_TOUCH_PAYLOAD_LENGTH          = 21;
     private static final int INJECT_SCROLL_EVENT_PAYLOAD_LENGTH   = 20;
     private static final int SET_SCREEN_POWER_MODE_PAYLOAD_LENGTH =  1;
     private static final int COMMAND_PAYLOAD_LENGTH               =  1;
@@ -126,8 +126,8 @@ public class ControlMessageReader {
         if (buffer.remaining() < INJECT_MOUSE_EVENT_PAYLOAD_LENGTH) {
             return null;
         }
-        int action = toUnsigned(buffer.get());
-        int buttons = buffer.getInt();
+        int action        = toUnsigned(buffer.get());
+        int buttons       = buffer.getInt();
         Position position = readPosition(buffer);
         return ControlMessage.createInjectMouseEvent(action, buttons, position);
     }
@@ -139,7 +139,8 @@ public class ControlMessageReader {
         int action        = toUnsigned(buffer.get());
         int touchId       = buffer.getInt();
         Position position = readPosition(buffer);
-        return ControlMessage.createInjectTouchEvent(action, touchId, position);
+        long timestamp    = ((long)buffer.getInt()) & 0xFFFFFFFF;
+        return ControlMessage.createInjectTouchEvent(action, touchId, position, timestamp);
     }
 
     private ControlMessage parseInjectScrollEvent() {

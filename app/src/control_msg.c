@@ -46,7 +46,8 @@ control_msg_serialize(const struct control_msg *msg, unsigned char *buf) {
             buf[1] = msg->inject_touch_event.action;
             buffer_write32be(&buf[2], msg->inject_touch_event.touch_id);
             write_position(&buf[6], &msg->inject_touch_event.position);
-            return 18;
+            buffer_write32be(&buf[18], msg->inject_touch_event.timestamp);
+            return 22;
         case CONTROL_MSG_TYPE_INJECT_SCROLL_EVENT:
             write_position(&buf[1], &msg->inject_scroll_event.position);
             buffer_write32be(&buf[13],

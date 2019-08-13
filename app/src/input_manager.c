@@ -507,6 +507,7 @@ input_manager_process_finger(struct input_manager *input_manager,
     if (finger_from_sdl_to_android(event,
                                    input_manager->screen->frame_size,
                                    &msg)) {
+        msg.inject_touch_event.timestamp = event->timestamp - input_manager->reference_timestamp;
         if (!controller_push_msg(input_manager->controller, &msg)) {
             LOGW("Could not send touch event");
         }

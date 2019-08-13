@@ -42,6 +42,7 @@ static struct input_manager input_manager = {
     .video_buffer = &video_buffer,
     .screen = &screen,
     .finger_timestamp = 0,
+    .reference_timestamp = 0,
 };
 
 // init SDL and set appropriate hints
@@ -253,6 +254,10 @@ event_loop(bool display, bool control, bool useIME, bool tablet) {
         SDL_AddEventWatch(event_watcher, NULL);
     }
 #endif
+    // Touch event reference point
+    input_manager.reference_timestamp = SDL_GetTicks();
+    input_manager_send_ping(&input_manager);
+
     SDL_TimerID my_timer_id = SDL_AddTimer(1500, timer_callbackfunc, NULL);
 
     SDL_Event event;
@@ -261,13 +266,16 @@ event_loop(bool display, bool control, bool useIME, bool tablet) {
         switch (result) {
             case EVENT_RESULT_STOPPED_BY_USER:
                 input_manager_send_quit(&input_manager);
+                SDL_RemoveTimer(my_timer_id);
                 return true;
             case EVENT_RESULT_STOPPED_BY_EOS:
+                SDL_RemoveTimer(my_timer_id);
                 return false;
             case EVENT_RESULT_CONTINUE:
                 break;
         }
     }
+
     SDL_RemoveTimer(my_timer_id);
     return false;
 }

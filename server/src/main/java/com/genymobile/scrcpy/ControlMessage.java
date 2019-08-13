@@ -1,5 +1,7 @@
 package com.genymobile.scrcpy;
 
+import android.os.SystemClock;
+
 /**
  * Union of all supported event types, identified by their {@code type}.
  */
@@ -23,6 +25,8 @@ public final class ControlMessage {
     public static final int COMMAND_PING                        = 6;
     public static final int COMMAND_GET_CLIPBOARD               = 7;
 
+    public static final int MAX_FINGERS = 10;
+
     private int type;
     private String text;
     private int metaState; // KeyEvent.META_*
@@ -32,17 +36,24 @@ public final class ControlMessage {
     private Position position;
     private int hScroll;
     private int vScroll;
-    public static final int MAX_FINGERS = 10;
     private int fingerId;
+    private final long timestamp;
+
+    private static long referenceTime = 0;
 
     private ControlMessage() {
+        this.timestamp = SystemClock.uptimeMillis();
+    }
+
+    private ControlMessage(long t) {
+        this.timestamp = referenceTime+t;
     }
 
     public static ControlMessage createInjectKeycode(int action, int keycode, int metaState) {
         ControlMessage event = new ControlMessage();
-        event.type = TYPE_INJECT_KEYCODE;
-        event.action = action;
-        event.keycode = keycode;
+        event.type      = TYPE_INJECT_KEYCODE;
+        event.action    = action;
+        event.keycode   = keycode;
         event.metaState = metaState;
         return event;
     }
@@ -56,17 +67,17 @@ public final class ControlMessage {
 
     public static ControlMessage createInjectMouseEvent(int action, int buttons, Position position) {
         ControlMessage event = new ControlMessage();
-        event.type = TYPE_INJECT_MOUSE_EVENT;
-        event.action = action;
-        event.buttons = buttons;
+        event.type     = TYPE_INJECT_MOUSE_EVENT;
+        event.action   = action;
+        event.buttons  = buttons;
         event.position = position;
         return event;
     }
 
-    public static ControlMessage createInjectTouchEvent(int action, int fingerId, Position position) {
+    public static ControlMessage createInjectTouchEvent(int action, int fingerId, Position position, long timestamp) {
         if (fingerId < 0 || fingerId >= MAX_FINGERS)
             fingerId = 0;
-        ControlMessage event = new ControlMessage();
+        ControlMessage event = new ControlMessage(timestamp);
         event.type     = TYPE_INJECT_TOUCH_EVENT;
         event.action   = action;
         event.position = position;
@@ -76,10 +87,10 @@ public final class ControlMessage {
 
     public static ControlMessage createInjectScrollEvent(Position position, int hScroll, int vScroll) {
         ControlMessage event = new ControlMessage();
-        event.type = TYPE_INJECT_SCROLL_EVENT;
+        event.type     = TYPE_INJECT_SCROLL_EVENT;
         event.position = position;
-        event.hScroll = hScroll;
-        event.vScroll = vScroll;
+        event.hScroll  = hScroll;
+        event.vScroll  = vScroll;
         return event;
     }
 
@@ -95,7 +106,7 @@ public final class ControlMessage {
      */
     public static ControlMessage createSetScreenPowerMode(int mode) {
         ControlMessage event = new ControlMessage();
-        event.type = TYPE_SET_SCREEN_POWER_MODE;
+        event.type   = TYPE_SET_SCREEN_POWER_MODE;
         event.action = mode;
         return event;
     }
@@ -107,8 +118,11 @@ public final class ControlMessage {
     }
 
     public static ControlMessage createCommandEvent(int action) {
+        if (referenceTime == 0 && action == COMMAND_PING)
+           referenceTime = SystemClock.uptimeMillis();
+
         ControlMessage event = new ControlMessage();
-        event.type = TYPE_COMMAND;
+        event.type   = TYPE_COMMAND;
         event.action = action;
         return event;
     }
@@ -149,5 +163,6 @@ public final class ControlMessage {
         return vScroll;
     }
 
-    public int getFingerId() { return fingerId; }
+    public int  getFingerId() { return fingerId; }
+    public long getTime()     { return timestamp; }
 }

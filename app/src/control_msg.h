@@ -62,6 +62,7 @@ struct control_msg {
             enum android_motionevent_action action;
             int32_t touch_id;
             struct position position;
+            uint32_t timestamp;
         } inject_touch_event;
         struct {
             struct position position;
