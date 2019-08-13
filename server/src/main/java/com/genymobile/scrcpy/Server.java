@@ -195,5 +195,6 @@ public final class Server {
         Ln.i("scrcpy stopped");
         // Don't delete in advance!
         unlinkSelf();
+        System.exit(0);
     }
 }
