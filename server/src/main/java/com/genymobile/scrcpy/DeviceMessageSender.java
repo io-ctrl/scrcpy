@@ -7,6 +7,7 @@ public final class DeviceMessageSender {
     private final DesktopConnection connection;
 
     private String clipboardText;
+    private boolean running = true;
 
     public DeviceMessageSender(DesktopConnection connection) {
         this.connection = connection;
@@ -18,17 +19,24 @@ public final class DeviceMessageSender {
     }
 
     public void loop() throws IOException, InterruptedException {
-        while (true) {
+        while (running) {
             String text;
             synchronized (this) {
-                while (clipboardText == null) {
+                while (running && clipboardText == null) {
                     wait();
                 }
                 text = clipboardText;
                 clipboardText = null;
             }
-            DeviceMessage event = DeviceMessage.createClipboard(text);
-            connection.sendDeviceMessage(event);
+            if (text != null && !text.isEmpty()) {
+                DeviceMessage event = DeviceMessage.createClipboard(text);
+                connection.sendDeviceMessage(event);
+            }
         }
+    }
+
+    public synchronized void stop() {
+        running = false;
+        notify();
     }
 }

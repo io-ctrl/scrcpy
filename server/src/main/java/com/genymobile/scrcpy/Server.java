@@ -35,8 +35,8 @@ public final class Server {
                 screenEncoder.streamScreen(device, connection.getOut());
             } catch (IOException e) {
                 // this is expected on close
-                Ln.d("Screen streaming stopped");
             }
+            Ln.d("Screen streaming stopped");
             connection.close();
         } catch (Exception e) {
             Ln.e("strcpy: ", e);
@@ -63,10 +63,10 @@ public final class Server {
             public void run() {
                 try {
                     sender.loop();
-                } catch (IOException | InterruptedException e) {
+                } catch (Exception e) {
                     // this is expected on close
-                    Ln.d("Device message sender stopped");
                 }
+                Ln.d("Device message sender stopped");
             }
         }).start();
     }
@@ -116,7 +116,7 @@ public final class Server {
         if (tokens.length != 4) {
             throw new IllegalArgumentException("Crop must contains 4 values separated by colons: \"" + crop + "\"");
         }
-        int width = Integer.parseInt(tokens[0]);
+        int width  = Integer.parseInt(tokens[0]);
         int height = Integer.parseInt(tokens[1]);
         int x = Integer.parseInt(tokens[2]);
         int y = Integer.parseInt(tokens[3]);

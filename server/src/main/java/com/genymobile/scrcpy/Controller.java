@@ -117,6 +117,7 @@ public class Controller {
 
         timer.cancel();
         ime.Finish();
+        sender.stop();
     }
 
     public DeviceMessageSender getSender() {
