@@ -46,6 +46,11 @@ public final class ControlMessage {
     }
 
     private ControlMessage(long t) {
+        /*
+            t is actually 32-bit unsigned value, and it wraps in 49.7 days.
+            Here it is presumed that the server will never run continuously
+            for so long time.
+        */
         this.timestamp = referenceTime+t;
     }
 
@@ -127,42 +132,15 @@ public final class ControlMessage {
         return event;
     }
 
-    public int getType() {
-        return type;
-    }
-
-    public String getText() {
-        return text;
-    }
-
-    public int getMetaState() {
-        return metaState;
-    }
-
-    public int getAction() {
-        return action;
-    }
-
-    public int getKeycode() {
-        return keycode;
-    }
-
-    public int getButtons() {
-        return buttons;
-    }
-
-    public Position getPosition() {
-        return position;
-    }
-
-    public int getHScroll() {
-        return hScroll;
-    }
-
-    public int getVScroll() {
-        return vScroll;
-    }
-
-    public int  getFingerId() { return fingerId; }
-    public long getTime()     { return timestamp; }
+    public String getText() { return text; }
+    public Position getPosition() { return position; }
+    public int  getType()      { return type; }
+    public int  getMetaState() { return metaState; }
+    public int  getAction()    { return action; }
+    public int  getKeycode()   { return keycode; }
+    public int  getButtons()   { return buttons; }
+    public int  getHScroll()   { return hScroll; }
+    public int  getVScroll()   { return vScroll; }
+    public int  getFingerId()  { return fingerId; }
+    public long getTime()      { return timestamp; }
 }
