@@ -139,7 +139,7 @@ public class ControlMessageReader {
         int action        = toUnsigned(buffer.get());
         int touchId       = buffer.getInt();
         Position position = readPosition(buffer);
-        long timestamp    = ((long)buffer.getInt()) & 0xFFFFFFFF;
+        long timestamp    = toUnsigned(buffer.getInt());
         return ControlMessage.createInjectTouchEvent(action, touchId, position, timestamp);
     }
 
@@ -193,5 +193,10 @@ public class ControlMessageReader {
     @SuppressWarnings("checkstyle:MagicNumber")
     private static int toUnsigned(byte value) {
         return value & 0xff;
+    }
+
+    @SuppressWarnings("checkstyle:MagicNumber")
+    private static long toUnsigned(int value) {
+        return ((long)value) & 0xffffffff;
     }
 }
