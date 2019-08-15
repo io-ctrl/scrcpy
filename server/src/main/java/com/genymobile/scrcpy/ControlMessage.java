@@ -1,6 +1,7 @@
 package com.genymobile.scrcpy;
 
 import android.os.SystemClock;
+import android.view.MotionEvent;
 
 /**
  * Union of all supported event types, identified by their {@code type}.
@@ -39,19 +40,45 @@ public final class ControlMessage {
     private int fingerId;
     private final long timestamp;
 
-    private static long referenceTime = 0;
+    private static long referenceTime  = 0;
+    private static long lastEventLocal = 0;
+    private static long lastEvent      = 0;
 
     private ControlMessage() {
         this.timestamp = SystemClock.uptimeMillis();
     }
 
-    private ControlMessage(long t) {
+    private ControlMessage(long t, boolean startEvent) {
         /*
             t is actually 32-bit unsigned value, and it wraps in 49.7 days.
             Here it is presumed that the server will never run continuously
             for so long time.
         */
-        this.timestamp = referenceTime+t;
+        long nowLocal = SystemClock.uptimeMillis();
+        long now      = referenceTime+t;
+
+        /*
+            It is important to reproduce real delays between events
+            relative to ACTION_DOWN. TCP may deliver several events
+            at once. Providing only relative to reference timestamps
+            does not help much.
+        */
+        if (lastEventLocal > 0 && !startEvent) {
+            long delay = (now-lastEvent)-(nowLocal-lastEventLocal);
+            if (delay > 0) {
+                if (delay > 5)
+                    SystemClock.sleep(delay > 50 ? 50 : delay-5);
+                nowLocal = SystemClock.uptimeMillis();
+            }
+            else
+                nowLocal += delay;
+//            Ln.i("Delay="+delay);
+        }
+
+        this.timestamp = nowLocal;
+        lastEventLocal = nowLocal;
+        lastEvent      = now;
+
     }
 
     public static ControlMessage createInjectKeycode(int action, int keycode, int metaState) {
@@ -82,7 +109,7 @@ public final class ControlMessage {
     public static ControlMessage createInjectTouchEvent(int action, int fingerId, Position position, long timestamp) {
         if (fingerId < 0 || fingerId >= MAX_FINGERS)
             fingerId = 0;
-        ControlMessage event = new ControlMessage(timestamp);
+        ControlMessage event = new ControlMessage(timestamp, action == MotionEvent.ACTION_DOWN);
         event.type     = TYPE_INJECT_TOUCH_EVENT;
         event.action   = action;
         event.position = position;
