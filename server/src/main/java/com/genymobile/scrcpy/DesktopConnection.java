@@ -98,7 +98,7 @@ public final class DesktopConnection implements Closeable {
                 Ln.i("Forward connection accepted");
             } else {
                 SocketChannel videoSocket = listenAndAccept(port);
-                videoSocket.socket().setSendBufferSize(2*1024*1024);
+                videoSocket.socket().setSendBufferSize(32*1024);
                 videoSocket.socket().setTrafficClass(0B00111100);
                 videoSocket.socket().getOutputStream().write(0);
                 SocketChannel controlSocket = listenAndAccept(port);
