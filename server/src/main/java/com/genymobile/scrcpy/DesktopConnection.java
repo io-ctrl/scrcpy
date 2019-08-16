@@ -99,6 +99,7 @@ public final class DesktopConnection implements Closeable {
             } else {
                 SocketChannel videoSocket = listenAndAccept(port);
                 videoSocket.socket().setSendBufferSize(32*1024);
+                videoSocket.socket().setTcpNoDelay(true);
                 videoSocket.socket().setTrafficClass(0B00111100);
                 videoSocket.socket().getOutputStream().write(0);
                 SocketChannel controlSocket = listenAndAccept(port);
