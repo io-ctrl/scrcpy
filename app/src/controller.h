@@ -20,6 +20,7 @@ struct controller {
     bool stopped;
     struct control_msg_queue queue;
     struct receiver receiver;
+    uint32_t reference_timestamp;
 };
 
 bool

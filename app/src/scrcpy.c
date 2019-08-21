@@ -38,11 +38,10 @@ static struct controller controller;
 static struct file_handler file_handler;
 
 static struct input_manager input_manager = {
-    .controller = &controller,
+    .controller   = &controller,
     .video_buffer = &video_buffer,
-    .screen = &screen,
+    .screen       = &screen,
     .finger_timestamp = 0,
-    .reference_timestamp = 0,
 };
 
 // init SDL and set appropriate hints
@@ -255,8 +254,8 @@ event_loop(bool display, bool control, bool useIME, bool tablet) {
     }
 #endif
     // Touch event reference point
+    controller.reference_timestamp = SDL_GetTicks();
     input_manager_send_ping(&input_manager);
-    input_manager.reference_timestamp = SDL_GetTicks();
 
     SDL_TimerID my_timer_id = SDL_AddTimer(1500, timer_callbackfunc, NULL);
 

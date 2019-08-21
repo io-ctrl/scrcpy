@@ -44,6 +44,7 @@ enum screen_power_mode {
 
 struct control_msg {
     enum control_msg_type type;
+    uint32_t              timestamp;
     union {
         struct {
             enum android_keyevent_action action;
@@ -62,7 +63,6 @@ struct control_msg {
             enum android_motionevent_action action;
             int32_t touch_id;
             struct position position;
-            uint32_t timestamp;
         } inject_touch_event;
         struct {
             struct position position;

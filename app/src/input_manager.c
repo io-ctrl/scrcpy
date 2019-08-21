@@ -43,6 +43,7 @@ send_keycode(struct controller *controller, enum android_keycode keycode,
     msg.type = CONTROL_MSG_TYPE_INJECT_KEYCODE;
     msg.inject_keycode.keycode = keycode;
     msg.inject_keycode.metastate = 0;
+    msg.timestamp = SDL_GetTicks() - controller->reference_timestamp;
 
     if (actions & ACTION_DOWN) {
         msg.inject_keycode.action = AKEY_EVENT_ACTION_DOWN;
@@ -100,6 +101,7 @@ send_command(struct controller *controller, enum control_command action) {
     struct control_msg msg;
     msg.type = CONTROL_MSG_TYPE_COMMAND;
     msg.command_event.action = action;
+    msg.timestamp = SDL_GetTicks() - controller->reference_timestamp;
 
     return controller_push_msg(controller, &msg);
 }
@@ -176,6 +178,7 @@ set_device_clipboard(struct controller *controller) {
     struct control_msg msg;
     msg.type = CONTROL_MSG_TYPE_SET_CLIPBOARD;
     msg.set_clipboard.text = text;
+    msg.timestamp = SDL_GetTicks() - controller->reference_timestamp;
 
     if (!controller_push_msg(controller, &msg)) {
         SDL_free(text);
@@ -189,6 +192,7 @@ set_screen_power_mode(struct controller *controller,
     struct control_msg msg;
     msg.type = CONTROL_MSG_TYPE_SET_SCREEN_POWER_MODE;
     msg.set_screen_power_mode.mode = mode;
+    msg.timestamp = SDL_GetTicks() - controller->reference_timestamp;
 
     if (!controller_push_msg(controller, &msg)) {
         LOGW("Could not request 'set screen power mode'");
@@ -227,6 +231,8 @@ clipboard_paste(struct controller *controller) {
     struct control_msg msg;
     msg.type = CONTROL_MSG_TYPE_INJECT_TEXT;
     msg.inject_text.text = text;
+    msg.timestamp = SDL_GetTicks() - controller->reference_timestamp;
+
     if (!controller_push_msg(controller, &msg)) {
         SDL_free(text);
         LOGW("Could not request 'paste clipboard'");
@@ -248,6 +254,7 @@ input_manager_process_text_input(struct input_manager *input_manager,
 
     struct control_msg msg;
     msg.type = CONTROL_MSG_TYPE_INJECT_TEXT;
+    msg.timestamp = SDL_GetTicks() - input_manager->controller->reference_timestamp;
     msg.inject_text.text = SDL_strdup(event->text);
     if (!msg.inject_text.text) {
         LOGW("Could not strdup input text");
@@ -400,6 +407,7 @@ input_manager_process_key(struct input_manager *input_manager,
     }
 
     struct control_msg msg;
+    msg.timestamp = event->timestamp - input_manager->controller->reference_timestamp;
     if (input_key_from_sdl_to_android(event, &msg, useIME)) {
         if (!controller_push_msg(controller, &msg)) {
             LOGW("Could not request 'inject keycode'");
@@ -435,7 +443,9 @@ input_manager_process_mouse_motion(struct input_manager *input_manager,
         // do not send motion events when no button is pressed
         return;
     }
+
     struct control_msg msg;
+    msg.timestamp = event->timestamp - input_manager->controller->reference_timestamp;
     if (mouse_motion_from_sdl_to_android(event,
                                          input_manager->screen->frame_size,
                                          &msg)) {
@@ -489,6 +499,7 @@ input_manager_process_mouse_button(struct input_manager *input_manager,
     }
 
     struct control_msg msg;
+    msg.timestamp = event->timestamp - input_manager->controller->reference_timestamp;
     if (mouse_button_from_sdl_to_android(event,
                                          input_manager->screen->frame_size,
                                          &msg)) {
@@ -504,10 +515,10 @@ input_manager_process_finger(struct input_manager *input_manager,
     input_manager->finger_timestamp = event->timestamp;
 
     struct control_msg msg;
+    msg.timestamp = event->timestamp - input_manager->controller->reference_timestamp;
     if (finger_from_sdl_to_android(event,
                                    input_manager->screen->frame_size,
                                    &msg)) {
-        msg.inject_touch_event.timestamp = event->timestamp - input_manager->reference_timestamp;
         if (!controller_push_msg(input_manager->controller, &msg)) {
             LOGW("Could not send touch event");
         }
@@ -522,6 +533,7 @@ input_manager_process_mouse_wheel(struct input_manager *input_manager,
         .point = get_mouse_point(input_manager->screen),
     };
     struct control_msg msg;
+    msg.timestamp = event->timestamp - input_manager->controller->reference_timestamp;
     if (mouse_wheel_from_sdl_to_android(event, position, &msg)) {
         if (!controller_push_msg(input_manager->controller, &msg)) {
             LOGW("Could not request 'inject mouse wheel event'");
