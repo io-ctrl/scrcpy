@@ -9,9 +9,9 @@ import java.nio.charset.StandardCharsets;
 public class ControlMessageReader {
 
     private static final int INJECT_KEYCODE_PAYLOAD_LENGTH        =  9;
-    private static final int INJECT_MOUSE_EVENT_PAYLOAD_LENGTH    = 17;
+    private static final int INJECT_MOUSE_EVENT_PAYLOAD_LENGTH    = 21;
     private static final int INJECT_TOUCH_PAYLOAD_LENGTH          = 21;
-    private static final int INJECT_SCROLL_EVENT_PAYLOAD_LENGTH   = 20;
+    private static final int INJECT_SCROLL_EVENT_PAYLOAD_LENGTH   = 24;
     private static final int SET_SCREEN_POWER_MODE_PAYLOAD_LENGTH =  1;
     private static final int COMMAND_PAYLOAD_LENGTH               =  5;
 
@@ -129,7 +129,8 @@ public class ControlMessageReader {
         int action        = toUnsigned(buffer.get());
         int buttons       = buffer.getInt();
         Position position = readPosition(buffer);
-        return ControlMessage.createInjectMouseEvent(action, buttons, position);
+        long timestamp    = toUnsigned(buffer.getInt());
+        return ControlMessage.createInjectMouseEvent(action, buttons, position, timestamp);
     }
 
     private ControlMessage parseInjectTouchEvent() {
@@ -148,9 +149,10 @@ public class ControlMessageReader {
             return null;
         }
         Position position = readPosition(buffer);
-        int hScroll = buffer.getInt();
-        int vScroll = buffer.getInt();
-        return ControlMessage.createInjectScrollEvent(position, hScroll, vScroll);
+        int hScroll       = buffer.getInt();
+        int vScroll       = buffer.getInt();
+        long timestamp    = toUnsigned(buffer.getInt());
+        return ControlMessage.createInjectScrollEvent(position, hScroll, vScroll, timestamp);
     }
 
     private ControlMessage parseSetClipboard() {

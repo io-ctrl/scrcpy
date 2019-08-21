@@ -41,7 +41,8 @@ control_msg_serialize(const struct control_msg *msg, unsigned char *buf) {
             buf[1] = msg->inject_mouse_event.action;
             buffer_write32be(&buf[2], msg->inject_mouse_event.buttons);
             write_position(&buf[6], &msg->inject_mouse_event.position);
-            return 18;
+            buffer_write32be(&buf[18], msg->timestamp);
+            return 22;
         case CONTROL_MSG_TYPE_INJECT_TOUCH_EVENT:
             buf[1] = msg->inject_touch_event.action;
             buffer_write32be(&buf[2], msg->inject_touch_event.touch_id);
@@ -54,7 +55,8 @@ control_msg_serialize(const struct control_msg *msg, unsigned char *buf) {
                              (uint32_t) msg->inject_scroll_event.hscroll);
             buffer_write32be(&buf[17],
                              (uint32_t) msg->inject_scroll_event.vscroll);
-            return 21;
+            buffer_write32be(&buf[21], msg->timestamp);
+            return 25;
         case CONTROL_MSG_TYPE_COMMAND:
             buf[1] = msg->command_event.action;
             buffer_write32be(&buf[2], msg->timestamp);

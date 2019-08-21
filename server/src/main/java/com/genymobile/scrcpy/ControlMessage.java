@@ -95,8 +95,8 @@ public final class ControlMessage {
         return event;
     }
 
-    public static ControlMessage createInjectMouseEvent(int action, int buttons, Position position) {
-        ControlMessage event = new ControlMessage();
+    public static ControlMessage createInjectMouseEvent(int action, int buttons, Position position, long timestamp) {
+        ControlMessage event = new ControlMessage(timestamp);
         event.type     = TYPE_INJECT_MOUSE_EVENT;
         event.action   = action;
         event.buttons  = buttons;
@@ -115,8 +115,8 @@ public final class ControlMessage {
         return event;
     }
 
-    public static ControlMessage createInjectScrollEvent(Position position, int hScroll, int vScroll) {
-        ControlMessage event = new ControlMessage();
+    public static ControlMessage createInjectScrollEvent(Position position, int hScroll, int vScroll, long timestamp) {
+        ControlMessage event = new ControlMessage(timestamp);
         event.type     = TYPE_INJECT_SCROLL_EVENT;
         event.position = position;
         event.hScroll  = hScroll;
