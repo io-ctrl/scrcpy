@@ -40,15 +40,14 @@ public final class ControlMessage {
     private int fingerId;
     private final long timestamp;
 
-    private static long referenceTime  = 0;
-    private static long lastEventLocal = 0;
-    private static long lastEvent      = 0;
+    private static long referenceTime = 0;
+    private static long lastEvent     = 0;
 
     private ControlMessage() {
         this.timestamp = SystemClock.uptimeMillis();
     }
 
-    private ControlMessage(long t, boolean startEvent) {
+    private ControlMessage(long t) {
         /*
             t is actually 32-bit unsigned value, and it wraps in 49.7 days.
             Here it is presumed that the server will never run continuously
@@ -58,27 +57,26 @@ public final class ControlMessage {
         long now      = referenceTime+t;
 
         /*
-            It is important to reproduce real delays between events
-            relative to ACTION_DOWN. TCP may deliver several events
-            at once. Providing only relative to reference timestamps
-            does not help much.
+            It is important to reproduce real delays between events, but
+            we can't predict network delays.
         */
-        if (lastEventLocal > 0 && !startEvent) {
-            long delay = (now-lastEvent)-(nowLocal-lastEventLocal);
-            if (delay > 0) {
-                if (delay > 5)
-                    SystemClock.sleep(delay > 50 ? 50 : delay-5);
-                nowLocal = SystemClock.uptimeMillis();
-            }
-            else
-                nowLocal += delay;
-//            Ln.i("Delay="+delay);
+        if (now > nowLocal) {
+            final long delay = now - nowLocal;
+            SystemClock.sleep(delay > 50 ? 50 : delay);
+            now = SystemClock.uptimeMillis();
+            if (delay > 50)
+                referenceTime -= 50;
+        } else {
+            final long delay = nowLocal - now;
+            if (delay > 50) // Too far in the past? Better to be in the future a little bit!
+                referenceTime += 50;
         }
 
-        this.timestamp = nowLocal;
-        lastEventLocal = nowLocal;
-        lastEvent      = now;
+        if (now < lastEvent) // Make all events subsequent!
+           now = lastEvent;
 
+        this.timestamp = now;
+        lastEvent      = now;
     }
 
     public static ControlMessage createInjectKeycode(int action, int keycode, int metaState) {
@@ -109,7 +107,7 @@ public final class ControlMessage {
     public static ControlMessage createInjectTouchEvent(int action, int fingerId, Position position, long timestamp) {
         if (fingerId < 0 || fingerId >= MAX_FINGERS)
             fingerId = 0;
-        ControlMessage event = new ControlMessage(timestamp, action == MotionEvent.ACTION_DOWN);
+        ControlMessage event = new ControlMessage(timestamp);
         event.type     = TYPE_INJECT_TOUCH_EVENT;
         event.action   = action;
         event.position = position;
@@ -149,9 +147,11 @@ public final class ControlMessage {
         return event;
     }
 
-    public static ControlMessage createCommandEvent(int action) {
-        if (referenceTime == 0 && action == COMMAND_PING)
-           referenceTime = SystemClock.uptimeMillis();
+    public static ControlMessage createCommandEvent(int action, long timestamp) {
+        if (action == COMMAND_PING) {
+            if (referenceTime == 0)
+               referenceTime = SystemClock.uptimeMillis() - timestamp;
+        }
 
         ControlMessage event = new ControlMessage();
         event.type   = TYPE_COMMAND;

@@ -13,7 +13,7 @@ public class ControlMessageReader {
     private static final int INJECT_TOUCH_PAYLOAD_LENGTH          = 21;
     private static final int INJECT_SCROLL_EVENT_PAYLOAD_LENGTH   = 20;
     private static final int SET_SCREEN_POWER_MODE_PAYLOAD_LENGTH =  1;
-    private static final int COMMAND_PAYLOAD_LENGTH               =  1;
+    private static final int COMMAND_PAYLOAD_LENGTH               =  5;
 
     public static final int TEXT_MAX_LENGTH = 300;
     public static final int CLIPBOARD_TEXT_MAX_LENGTH = 4093;
@@ -173,8 +173,9 @@ public class ControlMessageReader {
         if (buffer.remaining() < COMMAND_PAYLOAD_LENGTH) {
             return null;
         }
-        int action = toUnsigned(buffer.get());
-        return ControlMessage.createCommandEvent(action);
+        int action     = toUnsigned(buffer.get());
+        long timestamp = toUnsigned(buffer.getInt());
+        return ControlMessage.createCommandEvent(action, timestamp);
     }
 
     private static Position readPosition(ByteBuffer buffer) {
