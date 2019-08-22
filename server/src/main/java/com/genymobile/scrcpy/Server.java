@@ -189,10 +189,14 @@ public final class Server {
         Options options = createOptions(args);
 
         Ln.i("scrcpy started: "+android.os.Process.myPid());
-        final DeviceControl deviceControl = new DeviceControl(options);
-        scrcpy(options);
-        deviceControl.Finish();
-        Ln.i("scrcpy stopped");
+        try {
+            final DeviceControl deviceControl = new DeviceControl(options);
+            scrcpy(options);
+            deviceControl.Finish();
+            Ln.i("scrcpy stopped");
+        } catch (Exception e) {
+            Ln.e("strcpy failed", e);
+        }
         // Don't delete in advance!
         unlinkSelf();
         System.exit(0);

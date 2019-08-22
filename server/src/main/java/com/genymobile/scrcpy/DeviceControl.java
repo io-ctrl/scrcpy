@@ -62,7 +62,7 @@ public final class DeviceControl {
     private Rotations Rotation = Rotations.UNKNOWN;
 
     DeviceControl(final Options options) {
-        Ln.i("DeviceControl started");
+        Ln.i("DeviceControl is starting");
         Instance = this;
 
         if (turnScreenOn()) {
@@ -105,6 +105,7 @@ public final class DeviceControl {
         densityChanged    = setDensity(options.getDensity());
         sizeChanged       = setSize(options.getSize());
         rotateByBroadcast = tabletMode && startRotator();
+        Ln.i("DeviceControl started");
     }
 
     private boolean sendRotate(int orientation) {
