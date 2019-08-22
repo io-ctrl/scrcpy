@@ -6,6 +6,8 @@ import android.os.IInterface;
 
 import java.lang.reflect.Method;
 
+import com.genymobile.scrcpy.Ln;
+
 @SuppressLint("PrivateApi")
 public final class ServiceManager {
     private final Method getServiceMethod;
@@ -28,6 +30,7 @@ public final class ServiceManager {
             getServiceMethod   = Class.forName("android.os.ServiceManager").getDeclaredMethod("getService",   String.class);
             checkServiceMethod = Class.forName("android.os.ServiceManager").getDeclaredMethod("checkService", String.class);
         } catch (Exception e) {
+            Ln.e("ServiceManager", e);
             throw new AssertionError(e);
         }
     }
@@ -38,6 +41,7 @@ public final class ServiceManager {
             Method asInterfaceMethod = Class.forName(type + "$Stub").getMethod("asInterface", IBinder.class);
             return (IInterface) asInterfaceMethod.invoke(null, binder);
         } catch (Exception e) {
+            Ln.e("getService("+service+")", e);
             throw new AssertionError(e);
         }
     }
@@ -48,6 +52,7 @@ public final class ServiceManager {
             Method asInterfaceMethod = Class.forName(type).getMethod("asInterface", IBinder.class);
             return (IInterface) asInterfaceMethod.invoke(null, binder);
         } catch (Exception e) {
+            Ln.e("checkService("+service+")", e);
             throw new AssertionError(e);
         }
     }
