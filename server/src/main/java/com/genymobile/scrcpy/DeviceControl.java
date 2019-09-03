@@ -213,8 +213,8 @@ public final class DeviceControl {
                     break;
                 }
             }
+            reader.close();
             p.waitFor();
-            try {reader.close();} catch (Exception e) {}
         }
         catch (Exception e) {
             Ln.e("DeviceControl.getCurrentIMEMethod", e);
