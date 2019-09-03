@@ -1,5 +1,6 @@
 package com.genymobile.scrcpy.wrappers;
 
+import android.os.Build;
 import android.os.IBinder;
 import android.os.IInterface;
 
@@ -11,6 +12,9 @@ public final class InputMethodManager {
     public InputMethodManager(IInterface manager) { this.manager = manager; }
 
     public boolean setInputMethodEnabled(String id, boolean enabled) {
+        // The method was removed in Pie (API 28)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+            return true;
         try {
             Class<?> cls = manager.getClass();
             try {
