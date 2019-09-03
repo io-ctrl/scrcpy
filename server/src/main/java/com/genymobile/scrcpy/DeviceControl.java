@@ -52,7 +52,7 @@ public final class DeviceControl {
     public static final String AdbIME = "com.android.adbkeyboard/.AdbIME";
     private boolean disableAdbIme = false;
     private boolean enabledAdbIme = false;
-    private String lastIMEMethod = getCurrentIMEMethod();
+    private final String lastIMEMethod;
 
     enum Rotations {
         UNKNOWN,
@@ -79,6 +79,7 @@ public final class DeviceControl {
         tabletMode = options.getTabletMode();
 
         if (options.getUseIME()) {
+            lastIMEMethod = getCurrentIMEMethod();
             // Init AdbIME before rotateByBroadcast!
             try {
                 disableAdbIme = !imm.setInputMethodEnabled(AdbIME, true);
@@ -88,6 +89,8 @@ public final class DeviceControl {
                 Ln.w("IME: "+e.toString());
             }
         }
+        else
+            lastIMEMethod = "";
 
         wm.getInitialDisplaySize(initialSize);
         wm.getBaseDisplaySize(baseSize);
@@ -169,8 +172,10 @@ public final class DeviceControl {
                 wm.setForcedDisplaySize(baseSize.x, baseSize.y);
         }
 
-        if (enabledAdbIme && !lastIMEMethod.isEmpty()) imm.setInputMethod(lastIMEMethod);
-        if (disableAdbIme) imm.setInputMethodEnabled(AdbIME, false);
+        if (enabledAdbIme && lastIMEMethod != null && !lastIMEMethod.isEmpty())
+            imm.setInputMethod(lastIMEMethod);
+        if (disableAdbIme)
+            imm.setInputMethodEnabled(AdbIME, false);
 
         Instance = null;
         Ln.i("DeviceControl stopped");
