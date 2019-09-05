@@ -71,17 +71,31 @@ ComponentName startService(in IApplicationThread caller, in Intent service,
             intent.setComponent(cn);
             Class<?> IApplicationThread = Class.forName("android.app.IApplicationThread");
             try {
+                // Android 8+
+                // startService(IApplicationThread caller, Intent service, String resolvedType, boolean requireForeground, String callingPackage, int userId)
                 Object ret = cls.getMethod("startService", IApplicationThread, Intent.class, String.class, boolean.class, String.class, int.class).invoke(manager
                         , null, intent
                         , intent.getType(), false
                         , SHELL_PACKAGE_NAME, ServiceManager.USER_CURRENT);
                 cn = (ComponentName)ret;
             } catch (NoSuchMethodException e) {
-                Object ret = cls.getMethod("startService", IApplicationThread, Intent.class, String.class, String.class, int.class).invoke(manager
-                        , null, intent
-                        , intent.getType()
-                        , SHELL_PACKAGE_NAME, ServiceManager.USER_CURRENT);
-                cn = (ComponentName)ret;
+                try {
+                    // Android 6, 7
+                    // startService(IApplicationThread caller, Intent service, String resolvedType, String callingPackage, int userId)
+                    Object ret = cls.getMethod("startService", IApplicationThread, Intent.class, String.class, String.class, int.class).invoke(manager
+                            , null, intent
+                            , intent.getType()
+                            , SHELL_PACKAGE_NAME, ServiceManager.USER_CURRENT);
+                    cn = (ComponentName)ret;
+                } catch (NoSuchMethodException ee) {
+                    // Android 5
+                    // startService(IApplicationThread caller, Intent service, String resolvedType, int userId)
+                    Object ret = cls.getMethod("startService", IApplicationThread, Intent.class, String.class, int.class).invoke(manager
+                            , null, intent
+                            , intent.getType()
+                            , ServiceManager.USER_CURRENT);
+                    cn = (ComponentName)ret;
+                }
             }
             if (cn == null) {
                 Ln.w("Error: Not found; no service started.");
