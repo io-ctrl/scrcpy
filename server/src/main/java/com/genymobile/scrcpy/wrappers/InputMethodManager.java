@@ -32,29 +32,18 @@ public final class InputMethodManager {
         try {
             Class<?> cls = manager.getClass();
             try {
-                cls.getMethod("setInputMethod", IBinder.class, String.class).invoke(manager, null, id);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+                // In Android 10, setInputMethod became deprecated in InputMethodManager, and was removed
+                // from IInputMethosManager. The deprecated method works essentially this way:
+                    Settings.put(Settings.SECURE, Settings.DEFAULT_INPUT_METHOD, id);
+                else
+                    cls.getMethod("setInputMethod", IBinder.class, String.class).invoke(manager, null, id);
                 return true;
             } catch (NoSuchMethodException e) {
                 Ln.e("setInputMethod", e);
             }
         } catch (Exception e) {
             Ln.e("setInputMethod", e);
-        }
-        return false;
-    }
-
-    // It does not work as expected!
-    public boolean switchToLastInputMethod() {
-        try {
-            Class<?> cls = manager.getClass();
-            try {
-                IBinder arg = null;
-                return (Boolean) cls.getMethod("switchToLastInputMethod", IBinder.class).invoke(manager, arg);
-            } catch (NoSuchMethodException e) {
-                Ln.e("switchToLastInputMethod", e);
-            }
-        } catch (Exception e) {
-            Ln.e("switchToLastInputMethod", e);
         }
         return false;
     }

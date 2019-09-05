@@ -7,10 +7,12 @@ import java.io.InputStreamReader;
 
 public final class Settings {
     public static final String SYSTEM = "system";
+    public static final String SECURE = "secure";
     public static final String SCREEN_BRIGHTNESS = android.provider.Settings.System.SCREEN_BRIGHTNESS;
     public static final String HIDE_ROTATION_LOCK_TOGGLE_FOR_ACCESSIBILITY = "hide_rotation_lock_toggle_for_accessibility"; //android.provider.Settings.System.HIDE_ROTATION_LOCK_TOGGLE_FOR_ACCESSIBILITY;
     public static final String ACCELEROMETER_ROTATION = android.provider.Settings.System.ACCELEROMETER_ROTATION;
     public static final String USER_ROTATION = android.provider.Settings.System.USER_ROTATION;
+    public static final String DEFAULT_INPUT_METHOD = "default_input_method";
 
     public static String get(final String namespace, final String key) {
         String[] cmd = new String[]{"settings", "get", namespace, key};
