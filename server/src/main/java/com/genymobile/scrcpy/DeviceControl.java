@@ -27,6 +27,7 @@ public final class DeviceControl {
     private final ServiceManager serviceManager = new ServiceManager();
     private final WindowManager wm              = serviceManager.getWindowManager();
     private final InputMethodManager imm        = serviceManager.getInputMethodManager();
+    private final PackageManager pm             = serviceManager.getPackageManager();
 
     private final int initialDensity = wm.getInitialDisplayDensity();
     private final int baseDensity    = wm.getBaseDisplayDensity();
@@ -49,7 +50,8 @@ public final class DeviceControl {
     static final String BROADCAST_ACTION = "name.lurker.RotateScreen";
     private final ActivityManager activityManager = serviceManager.getActivityManager();
 
-    public static final String AdbIME = "com.android.adbkeyboard/.AdbIME";
+    public static final String AdbKeyboard = "com.android.adbkeyboard";
+    public static final String AdbIME      = AdbKeyboard+"/.AdbIME";
     private boolean disableAdbIme = false;
     private boolean enabledAdbIme = false;
     private final String lastIMEMethod;
@@ -78,7 +80,7 @@ public final class DeviceControl {
 
         tabletMode = options.getTabletMode();
 
-        if (options.getUseIME()) {
+        if (options.getUseIME() && pm.isPackageAvailable(AdbKeyboard)) {
             lastIMEMethod = getCurrentIMEMethod();
             // Init AdbIME before rotateByBroadcast!
             try {
