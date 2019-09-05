@@ -81,7 +81,7 @@ public final class DeviceControl {
         tabletMode = options.getTabletMode();
 
         if (options.getUseIME() && pm.isPackageAvailable(AdbKeyboard)) {
-            lastIMEMethod = getCurrentIMEMethod();
+            lastIMEMethod = Settings.get(Settings.SECURE, Settings.DEFAULT_INPUT_METHOD);
             // Init AdbIME before rotateByBroadcast!
             try {
                 disableAdbIme = !imm.setInputMethodEnabled(AdbIME, true);
@@ -204,29 +204,6 @@ public final class DeviceControl {
     static private final String SERVICE = "com.android.adbkeyboard/.Rotate";
     private boolean startRotator() {
         return activityManager.startService(SERVICE);
-    }
-
-    private static String getCurrentIMEMethod() {
-        String[] cmd = new String[]{"dumpsys", "input_method"};
-        String result = "";
-        try {
-            final Process p = Runtime.getRuntime().exec(cmd);
-            BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream(),"UTF-8"));
-            String line;
-            final String mCurMethodId = "  mCurMethodId=";
-            while ((line=reader.readLine()) != null) {
-                if (line.startsWith(mCurMethodId)) {
-                    result = line.substring(mCurMethodId.length());
-                    break;
-                }
-            }
-            reader.close();
-//            p.waitFor();
-        }
-        catch (Exception e) {
-            Ln.e("DeviceControl.getCurrentIMEMethod", e);
-        }
-        return result;
     }
 
     // Below methods were copy-pasted from Controller.
