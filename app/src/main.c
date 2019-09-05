@@ -37,7 +37,7 @@ struct args {
 };
 
 static void usage(const char *arg0) {
-    fprintf(stderr,
+    fprintf(stdout,
         "Usage: %s [options]\n"
         "\n"
         "Options:\n"
