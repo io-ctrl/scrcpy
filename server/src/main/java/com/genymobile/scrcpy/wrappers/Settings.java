@@ -19,7 +19,6 @@ public final class Settings {
         try {
             final Process p = Runtime.getRuntime().exec(cmd);
             BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream(),"UTF-8"));
-            p.waitFor();
             String line = reader.readLine();
             reader.close();
             return line;
