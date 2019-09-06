@@ -77,7 +77,7 @@ public final class SurfaceControl {
     }
 
     public static IBinder getBuiltInDisplay(int builtInDisplayId) {
-        try {
+         try {
             // the method signature has changed in Android Q
             // <https://github.com/Genymobile/scrcpy/issues/586>
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {

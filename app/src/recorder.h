@@ -3,13 +3,23 @@
 
 #include <stdbool.h>
 #include <libavformat/avformat.h>
+#include <SDL2/SDL_mutex.h>
+#include <SDL2/SDL_thread.h>
 
 #include "common.h"
+#include "queue.h"
 
 enum recorder_format {
     RECORDER_FORMAT_MP4 = 1,
     RECORDER_FORMAT_MKV,
 };
+
+struct record_packet {
+    AVPacket packet;
+    struct record_packet *next;
+};
+
+struct recorder_queue QUEUE(struct record_packet);
 
 struct recorder {
     char *filename;
@@ -17,6 +27,13 @@ struct recorder {
     AVFormatContext *ctx;
     struct size declared_frame_size;
     bool header_written;
+
+    SDL_Thread *thread;
+    SDL_mutex *mutex;
+    SDL_cond *queue_cond;
+    bool stopped; // set on recorder_stop() by the stream reader
+    bool failed; // set on packet write failure
+    struct recorder_queue queue;
 };
 
 bool
@@ -33,6 +50,15 @@ void
 recorder_close(struct recorder *recorder);
 
 bool
-recorder_write(struct recorder *recorder, AVPacket *packet);
+recorder_start(struct recorder *recorder);
+
+void
+recorder_stop(struct recorder *recorder);
+
+void
+recorder_join(struct recorder *recorder);
+
+bool
+recorder_push(struct recorder *recorder, const AVPacket *packet);
 
 #endif
